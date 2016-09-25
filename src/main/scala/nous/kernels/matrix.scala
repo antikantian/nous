@@ -1,10 +1,88 @@
 package nous.kernels
 
 import nous.implicits._
-import nous.linalg.Matrix
+import nous.linalg._
 import spire.math.Numeric
 
+import cats.data._
+import com.github.fommil.netlib.{ BLAS => netBLAS }
+
 object matrix {
+
+  type BLASReader[A] = Reader[netBLAS, A]
+
+  private[nous] def gemv[A: Numeric](
+      alpha : Double,
+      a     : Matrix[A],
+      x     : Vector[A],
+      beta  : Double,
+      y     : Vector[A]): Unit = {
+
+    val ta = if (a.isTransposed) "T" else "N"
+    val ma = if (!a.isTransposed) a.rows else a.cols
+    val na = if (!a.isTransposed) a.cols else a.rows
+
+    (a, x, y) match {
+      case (a1: Matrix[Double], x1: Vector[Double], y1: Vector[Double]) =>
+        Reader[netBLAS, Unit] { nb =>
+          nb.dgemv(
+            ta, ma, na,
+            alpha,
+            a1.data.asInstanceOf[Array[Double]], ma,
+            x1.data.asInstanceOf[Array[Double]], 1,
+            beta,
+            y1.data.asInstanceOf[Array[Double]], 1)
+        }
+      case (a1: Matrix[Float], x1: Vector[Float], y1: Vector[Float]) =>
+        Reader[netBLAS, Unit] { nb =>
+          nb.sgemv(
+            ta, ma, na,
+            alpha.toFloat,
+            a1.data.asInstanceOf[Array[Float]], ma,
+            x1.data.asInstanceOf[Array[Float]], 1,
+            beta.toFloat,
+            y1.data.asInstanceOf[Array[Float]], 1)
+        }
+    }
+  }
+
+  private[nous] def gemm[A: Numeric](
+      transA  : String,
+      transB  : String,
+      alpha   : Double,
+      a       : Matrix[A],
+      b       : Matrix[A],
+      beta    : Double,
+      c       : Matrix[A]): Unit = {
+
+    val lda = if (!a.isTransposed) a.rows else a.cols
+    val ldb = if (!b.isTransposed) b.rows else b.cols
+
+    (a, b, c) match {
+      case (ma: Matrix[Double], mb: Matrix[Double], mc: Matrix[Double]) =>
+        Reader[netBLAS, Unit] { nb =>
+          nb.dgemm(
+            transA, transB,
+            a.rows, b.cols, a.cols,
+            alpha,
+            ma.data.asInstanceOf[Array[Double]], lda,
+            mb.data.asInstanceOf[Array[Double]], ldb,
+            beta,
+            mc.asInstanceOf[Array[Double]], c.rows)
+        }
+      case (ma: Matrix[Float], mb: Matrix[Float], mc: Matrix[Float]) =>
+        Reader[netBLAS, Unit] { nb =>
+          nb.sgemm(
+            transA, transB,
+            a.rows, b.cols, a.cols,
+            alpha.toFloat,
+            ma.data.asInstanceOf[Array[Float]], lda,
+            mb.data.asInstanceOf[Array[Float]], ldb,
+            beta.toFloat,
+            mc.asInstanceOf[Array[Float]], c.rows)
+        }
+    }
+  }
 
   private[nous] def dot[A](m1: Matrix[A], m2: Matrix[A]) ={
     val ctb = (m: Matrix[A]) => m.rows != 1 && m.cols != 1

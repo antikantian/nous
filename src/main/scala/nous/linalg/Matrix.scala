@@ -18,17 +18,6 @@ class Matrix[A](val m: Int, val n: Int)(values: Array[A]) { self =>
 
   val cols: Int = n
 
-  val cachedT = Eval.later {
-    val arrT = data.clone
-
-    if (self.isSquare)
-      squareTranspose(cols, arrT)
-    else
-      blockTranspose(rows, cols, self.toArray, arrT)
-
-    new Matrix(cols, rows)(arrT)
-  }
-
   def length: Int = rows * cols
 
   def isSquare: Boolean = rows == cols
@@ -57,6 +46,17 @@ class Matrix[A](val m: Int, val n: Int)(values: Array[A]) { self =>
 
   def reshape(r: Int, c: Int): Matrix[A]
 
+  val isTransposed: Boolean
+  val cachedT = Eval.later {
+    val arrT = data.clone
+
+    if (self.isSquare)
+      squareTranspose(cols, arrT)
+    else
+      blockTranspose(rows, cols, self.toArray, arrT)
+
+    new Matrix(cols, rows)(arrT)
+  }
   def transpose: Matrix[A] = cachedT.value
 
   def T = transpose
