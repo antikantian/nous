@@ -1,45 +1,56 @@
-package nous.util
+package nous.data
 
 import scala.{Vector => SVector}
 
-import cats.{Applicative, Monoid}
+import cats._
 import cats.data.{Xor, NonEmptyVector => Nev}
-import nous.linalg.internal.{Container, ElementTag}
-import nous.linalg.{Matrix, Vector}
 import nous.util.exception._
 import spire.algebra.Eq
 
-class Sample[A](data: List[Matrix[A]])(private[nous] val num: Int = -1) { self =>
-  val entries = data
+/**
+
+class Sample[A](k: Int, nr: Int, nc: Int)(private[nous] val values: Array[A], val num: Int = -1) { self =>
   val number = num
-  val rows = if (data.isEmpty) 0 else data.head.rows
-  val cols = if (data.isEmpty) 0 else data.head.cols
-  val depth = data.length
+  val rows = nr
+  val cols = nc
+  val depth = k
   val size = rows * cols * depth
+  val entries = Eval.later { values.sliding(rows * cols).map(arr => Matrix.fromArray(rows, cols, arr)).toList }
 
-  def head = entries.head
+  def head = entries.value.head
+  def tail = entries.value.tail
 
-  def tail = entries.tail
+  def raw(channel: Int, row: Int, col: Int): A =
+    values.apply { ((depth + channel) * rows + row) * cols + col }
+
+  def indexOf(channel: Int, row: Int, col: Int): Int =
+    ((depth + channel) * rows + row) * cols + col
 
   /** Map over each value in each entry in this sample */
   def map[B](f: A => B): Sample[B] =
-    new Sample[B](self.entries.map(_.map(f)))(number)
+    new Sample(k, nr, nc)(values.map(f), number)
 
   /** Map over each entry in this sample */
-  def mapE[B](f: Matrix[A] => Matrix[B]): Sample[B] =
-    new Sample(entries map f)(number)
+  def mapEntries[B](f: Matrix[A] => Matrix[B]): Sample[B] = {
+    val mapped = entries.value.map(f).foldLeft(new Array[B](size)) { (arr, mat) => arr ++ mat.data }
+    new Sample(k, nr, nc)(mapped, number)
+  }
 
-  def renumber(n: Int) = new Sample[A](entries)(n)
+  def renumber(n: Int) = new Sample[A](k, nr, nc)(values, n)
+
+  def boundary: Rectangle = Rectangle(0, 0, cols - 1, rows - 1)
+
+  def asMatrix: Matrix[A] = new Matrix[A](depth, rows * cols)
 
 }
 
 object Sample extends SampleInstances {
 
-  def apply[A](mat: Matrix[A]): Sample[A] =
-    new Sample(List(mat))
+  def apply[A](k: Int, nr: Int, nc: Int, data: Array[A]): Sample[A] =
+    new Sample(k, nr, nc)(data)
 
-  def apply[A](mat: Matrix[A]*): Sample[A] =
-    new Sample(List(mat:_*))
+  def apply[A](k: Int, nr: Int, nc: Int, sampleNum: Int, data: Array[A]): Sample[A] =
+    new Sample(k, nr, nc)(data, sampleNum)
 
   def dimsMatch[A](s1: Sample[A], s2: Sample[A]): SampleMismatch Xor Sample[A] =
     if (implicitly[Eq[Sample[A]]].eqv(s1, s2))
@@ -78,3 +89,5 @@ sealed abstract class SampleInstances {
   }
 
 }
+
+*/

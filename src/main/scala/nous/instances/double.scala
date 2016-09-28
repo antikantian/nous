@@ -1,7 +1,8 @@
 package nous.instances
 
-import nous.linalg.Vector
-import nous.linalg.internal.ElementTag
+/**
+
+import nous.data.Vector
 
 object double {
 
@@ -18,3 +19,5 @@ object double {
   }
 
 }
+
+*/

@@ -55,6 +55,10 @@ lazy val versions = new {
   val fs2 = "0.9.0-RC2"
   val fs2Cats = "0.1.0-RC2"
   val nscalatime = "2.12.0"
+  val quiver = "5.4.9"
+  val scalacheck = "1.13.2"
+  val scalatest = "3.0.0"
+  val scalaj = "2.3.0"
   val scrimage = "2.1.7"
   val shapeless = "2.3.2"
   val simulacrum = "0.8.0"
@@ -88,11 +92,22 @@ lazy val misclibs = Seq(
 )
 
 lazy val mathlibs = Seq(
-  "org.scalanlp"           %% "breeze"           % versions.breeze,
-  "org.scalanlp"           %% "breeze-natives"   % versions.breeze,
   "org.typelevel"          %% "algebra"          % versions.algebra,
   "org.typelevel"          %% "algebra-laws"     % versions.algebra,
   "org.spire-math"         %% "spire"            % versions.spire
+)
+
+lazy val graphlibs = Seq(
+  "io.verizon.quiver" %% "core" % versions.quiver
+)
+
+lazy val httplibs = Seq(
+  "org.scalaj" %% "scalaj-http" % versions.scalaj
+)
+
+lazy val testlibs = Seq(
+  "org.scalacheck" %% "scalacheck" % versions.scalacheck,
+  "org.scalatest" %% "scalatest" % versions.scalatest
 )
 
 lazy val netlib = Seq(
@@ -101,9 +116,21 @@ lazy val netlib = Seq(
 
 javaCppPresetLibs ++= Seq("cuda" -> "7.5")
 
-libraryDependencies ++= (functionalibs ++ datastructs ++ imagelibs ++ streamlibs ++ misclibs ++ mathlibs ++ netlib)
+libraryDependencies ++= (
+  functionalibs ++
+    datastructs ++
+    imagelibs ++
+    streamlibs ++
+    httplibs ++
+    misclibs ++
+    mathlibs ++
+    testlibs ++
+    graphlibs ++
+    netlib)
 
 evictionWarningOptions in update := EvictionWarningOptions.default
   .withWarnTransitiveEvictions(false)
   .withWarnDirectEvictions(false)
   .withWarnScalaVersionEviction(false)
+
+testOptions in Test += Tests.Argument(TestFrameworks.ScalaCheck, "-maxSize", "5", "-minSuccessfulTests", "33", "-workers", "1", "-verbosity", "1")

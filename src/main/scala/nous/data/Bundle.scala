@@ -1,15 +1,15 @@
-package nous.util
+package nous.data
 
 import scala.annotation.tailrec
-import scala.{ Vector => SVector }
+import scala.{Vector => SVector}
 
 import cats._
-import cats.data.{ NonEmptyVector => Nev, Xor }
+import cats.data.{NonEmptyVector => Nev}
 import fs2._
-import nous.syntax.nev._
-import spire.random._
 import spire.algebra.Eq
-import spire.implicits._
+import spire.random._
+
+/**
 
 /** A bundle encapsulates data that's contained in a `Sample`. */
 class Bundle[A](val samples: List[Sample[A]], val batch: Option[Int]) {
@@ -95,3 +95,5 @@ sealed abstract class BundleInstances {
   }
 
 }
+
+ */

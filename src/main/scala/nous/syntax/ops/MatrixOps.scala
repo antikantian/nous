@@ -1,6 +1,7 @@
 package nous.syntax.ops
 
-import nous.linalg._
+/**
+import nous.data.Matrix
 import spire.algebra.Eq
 
 final class MatrixOps[A](lhs: Matrix[A])(implicit eq: Eq[A]) {
@@ -20,3 +21,5 @@ final class MatrixOps[A](lhs: Matrix[A])(implicit eq: Eq[A]) {
   def *(rhs: Matrix[A]): Matrix[A]
   def +(rhs: Matrix[A]): Matrix[A]
 }
+
+*/

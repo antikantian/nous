@@ -1,3 +1,3 @@
 package nous
 
-package object implicits extends syntax.AllSyntax
+//package object implicits extends syntax.AllSyntax

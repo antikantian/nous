@@ -1,4 +1,4 @@
-package nous.linalg.internal
+package nous.data
 
 import spire.algebra.Eq
 

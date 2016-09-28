@@ -1,29 +1,29 @@
 package nous.kernels
 
-import nous.implicits._
-import nous.linalg._
 import spire.math.Numeric
-
 import cats.data._
-import com.github.fommil.netlib.{ BLAS => netBLAS }
+import com.github.fommil.netlib.{BLAS => netBLAS}
+import nous.data
+import nous.data.Matrix
 
 object matrix {
 
   type BLASReader[A] = Reader[netBLAS, A]
 
+  /**
   private[nous] def gemv[A: Numeric](
       alpha : Double,
       a     : Matrix[A],
-      x     : Vector[A],
+      x     : data.Vector[A],
       beta  : Double,
-      y     : Vector[A]): Unit = {
+      y     : data.Vector[A]): Unit = {
 
     val ta = if (a.isTransposed) "T" else "N"
     val ma = if (!a.isTransposed) a.rows else a.cols
     val na = if (!a.isTransposed) a.cols else a.rows
 
     (a, x, y) match {
-      case (a1: Matrix[Double], x1: Vector[Double], y1: Vector[Double]) =>
+      case (a1: Matrix[Double], x1: data.Vector[Double], y1: data.Vector[Double]) =>
         Reader[netBLAS, Unit] { nb =>
           nb.dgemv(
             ta, ma, na,
@@ -33,7 +33,7 @@ object matrix {
             beta,
             y1.data.asInstanceOf[Array[Double]], 1)
         }
-      case (a1: Matrix[Float], x1: Vector[Float], y1: Vector[Float]) =>
+      case (a1: Matrix[Float], x1: data.Vector[Float], y1: data.Vector[Float]) =>
         Reader[netBLAS, Unit] { nb =>
           nb.sgemv(
             ta, ma, na,
@@ -106,6 +106,8 @@ object matrix {
     } else
       Predef.implicitly[Numeric[A]].times(m1(0), m2(0))
   }
+
+   */
 
   private[nous] def blockTranspose[A](inR: Int, inC: Int, in: Array[A], out: Array[A]) = {
     val XOVER = 60

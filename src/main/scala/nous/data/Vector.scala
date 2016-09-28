@@ -1,9 +1,9 @@
-package nous.linalg
+package nous.data
 
 import cats._
-import fs2._
-import nous.linalg.internal.ElementTag
-import spire.math.Sorting
+import spire.math._
+
+/**
 
 class Vector[A](_length: Int)(values: Array[A]) extends Matrix[A](1, _length) {
 
@@ -19,9 +19,6 @@ class Vector[A](_length: Int)(values: Array[A]) extends Matrix[A](1, _length) {
 
   def flatMap[B](f: A => Vector[B]): Vector[B] =
     new Vector(size)(data.flatMap(a => f(a).toArray))
-
-  def foldLeft[B](b: B)(f: (B, A) => B) =
-    data.foldLeft(b)(f)
 
   def scanLeft[B](b: B)(f: (B, A) => B): Vector[B] =
     new Vector(size)(data.scanLeft(b)(f))
@@ -62,8 +59,8 @@ class Vector[A](_length: Int)(values: Array[A]) extends Matrix[A](1, _length) {
 }
 
 object Vector {
-
-
+  def apply[A](size: Int): Vector[A] = new Vector(size)(new Array[A](size))
+  def zeros[A](size: Int)(implicit ev: Numeric[A]): Vector[A] = new Vector(size)(Array.fill(size)(ev.zero))
 }
 
 class ColumnVector[A](_length: Int) extends Vector[A](_length) {
@@ -82,3 +79,5 @@ sealed abstract class VectorInstances {
   }
 
 }
+
+*/
