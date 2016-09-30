@@ -122,6 +122,7 @@ class Matrix[A](val m: Int, val n: Int)(values: Array[A], private[nous] val isTr
     di._2
   }
 
+  // TODO: maxPoint, minPoint, reduceLeftP, switch to fs2
   def maxPoint(implicit ev: Order[A]): Point = {
     val pv = reduceLeftP { (pv1, pv2) => if (ev.gt(pv1.a, pv2.a)) pv1 else pv2 }
     Point(pv.x, pv.y)
@@ -189,15 +190,13 @@ object Matrix extends MatrixInstances {
 
   def fromArray[A](rows: Int, cols: Int, arr: Array[A]): Matrix[A] = apply(rows, cols, arr)
 
-  /**
   def fromTensor[A](t: Tensor[A], rows: Int, cols: Int) = {
     require(rows * cols == t.data.length, "Invalid size for conversionto matrix")
     new Matrix(rows, cols)(t.data.toArray)
   }
 
-  def fromTensor[A](t: Tensor[A]) =
+  def fromTensor[A: ClassTag](t: Tensor[A]): Matrix[A] =
     if (t.nonEmpty) fromTensor(t, t.samples.value, t.size / t.samples.value) else empty[A]
-   */
 
   def ones[A: ClassTag](rows: Int, cols: Int)(implicit ev: Numeric[A]): Matrix[A] =
     new Matrix(rows, cols)(Array.fill(rows * cols)(ev.one))

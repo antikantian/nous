@@ -5,6 +5,7 @@ import scala.collection.immutable.VectorBuilder
 import scala.{Vector => SVector}
 import scala.reflect.ClassTag
 
+import breeze.linalg.DenseMatrix
 import cats._
 import debox.Buffer
 import fs2._
@@ -12,6 +13,7 @@ import fs2.util.Attempt
 import nous.util.exception._
 import spire.math._
 import spire.random._
+import spire.implicits._
 
 class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(implicit ct: ClassTag[A]) { self =>
   val data = values
@@ -20,38 +22,15 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
   val rows = nr
   val cols = nc
   val sampleSize = depth * rows * cols
+  val matrixSize = rows * cols
   val step = rows * cols
   val nsamples = numSamples
+  val shape = (nsamples, depth, rows, cols)
 
   val samples = Eval.always {
     require(data.length % (depth * rows * cols) == 0, "Underlying array has irregular size.")
     data.length / (depth * rows * cols)
   }
-
-  /**
-  def head: Sample[A] =
-    new Sample(depth, rows, cols)(values.elems.slice(0, sampleSize))
-
-  def tail: Tensor[A] = {
-    val start = sampleSize
-    val end = (sampleSize * samples.value) - sampleSize
-    new Tensor(numSamples - 1, d, nr, nc)(Buffer.unsafe[A](values.elems.slice(start, end)))
-  }
-
-  def hasTail: Boolean = values.length >= sampleSize * 2
-
-  /** Unlike `head`, `headUnsafe` yields a `Sample[A]` with a view of the underlying array,
-   * instead of a slice (which copies the underlying array. */
-  def headUnsafe: Sample[A] =
-  new Sample(depth, rows, cols)(values.elems.view(0, sampleSize))
-
-  def tailUnsafe: Tensor[A] = {
-    val start = sampleSize
-    val end = (sampleSize * samples.value) - sampleSize
-    new Tensor(numSamples - 1, d, nr, nc)(Buffer.unsafe[A](values.elems.view(start, end).toArray))
-  }
-
-   */
 
   def raw(sample: Int, channel: Int, row: Int, col: Int): A =
     data.apply {
@@ -84,50 +63,65 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
       throw TensorConcatError("Cannot discern appropriate dimensionality for concatenation.")
   }
 
+  def reshape(_samples: Int, _depth: Int, _rows: Int, _cols: Int): Tensor[A] =
+    new Tensor(_samples, _depth, _rows, _cols)(data)
+
   def map[B: ClassTag: Numeric](f: A => B): Tensor[B] =
     new Tensor(nsamples, d, nr, nc)(data map f)
 
+  def mapBreeze[B: ClassTag: Numeric](f: DenseMatrix[A] => DenseMatrix[B]): Tensor[B] = {
+    Stream
+      .emits(data.elems)
+      .vectorChunkN(step)
+      .map(vec => f(DenseMatrix.create(rows, cols, vec.toArray, 0, cols, isTranspose = true)))
+      .map(mat => new Tensor(1, depth, mat.rows, mat.cols)(Buffer.unsafe(mat.data)))
+      .fold(Tensor.empty[B])((acc, tensor) => acc ++ tensor)
+      .toVector
+      .head
+  }
+
   def mapMatrix[B: ClassTag: Numeric](f: Matrix[A] => Matrix[B]): Tensor[B] = {
-    val dstream =
-      Stream
-        .emits(data.toVector)
-        .sliding(step)
-        .map(vec => f(Matrix(rows, cols, vec.toArray)))
-        .map(mat => Buffer.unsafe(mat.data))
-        .fold(Buffer.ofSize[B](sampleSize * samples.value))((acc, buf) => acc ++ buf)
-    val mappedBuffer = dstream.toVector.head
-    require(mappedBuffer.length == data.length, "Buffers of different dimensions.")
-    new Tensor(nsamples, d, nr, nc)(mappedBuffer)
+    Stream
+      .emits(data.elems)
+      .vectorChunkN(step)
+      .map(vec => f(Matrix(rows, cols, vec.toArray)))
+      .map(mat => new Tensor(1, depth, mat.rows, mat.cols)(Buffer.unsafe(mat.data)))
+      .fold(Tensor.empty[B])((acc, tensor) => acc ++ tensor)
+      .toVector
+      .head
   }
 
-  /**
-
-  def mapSamples[B](f: Sample[A] => Sample[B]): Tensor[B] = {
-    val sstream =
-      Stream
-        .emits(data.toVector)
-        .sliding(sampleSize)
-        .map(vec => f(Sample(depth, rows, cols, vec.toArray)))
-        .map(sample => new Tensor(1, sample.depth, sample.rows, sample.cols)(Buffer.unsafe(sample.values)))
-        .fold(Tensor.empty[B])((acc, tensor) => acc ++ tensor)
-    sstream.toVector.head
+  def mapSamples[B: ClassTag: Numeric](f: Sample[A] => Sample[B]): Tensor[B] = {
+    Stream
+      .emits(data.toVector)
+      .vectorChunkN(sampleSize)
+      .map(vec => f(Sample(depth, rows, cols, vec.toArray)))
+      .map(sample => new Tensor(1, sample.depth, sample.rows, sample.cols)(Buffer.unsafe(sample.values)))
+      .fold(Tensor.empty[B])((acc, tensor) => acc ++ tensor)
+      .toVector
+      .head
   }
-   */
+
+  def foreachBreezeMatrix(f: DenseMatrix[A] => Unit): Attempt[Unit] = {
+    Stream
+      .emits(data.elems)
+      .vectorChunkN(step)
+      .map(vec => f(DenseMatrix.create(rows, cols, vec.toArray, 0, cols, isTranspose = true)))
+      .run
+  }
 
   def foreachMatrix(f: Matrix[A] => Unit): Attempt[Unit] = {
     Stream
-      .emits(data.toVector)
-      .sliding(step)
+      .emits(data.elems)
+      .vectorChunkN(step)
       .map(vec => f(Matrix(rows, cols, vec.toArray)))
       .run
   }
 
-  /**
-
   def foreachSample(f: Sample[A] => Unit): Attempt[Unit] = {
     Stream
       .emits(data.toVector)
-      .sliding(sampleSize)
+      .vectorChunkN(sampleSize)
       .map(vec => f(Sample(depth, rows, cols, vec.toArray)))
       .run
   }
@@ -138,8 +132,6 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
     val sview = data.elems.view(startIdx, sampleSize)
     System.arraycopy(s.values, 0, sview, 0, sampleSize)
   }
-
-   */
 
   def setMatrix(idx: Int, m: Matrix[A]): Unit = {
     require(m.length == step, "Matrix sizes must be equal")
@@ -153,8 +145,6 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
     new Matrix(rows, cols)(data.elems.slice(startIdx, startIdx + (rows * cols)))
   }
 
-  /**
-
   def insertSample(idx: Int, s: Sample[A]): Tensor[A] = {
     val startIdx = idx * sampleSize
     self.synchronized {
@@ -164,19 +154,15 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
   }
 
   def toSamples: List[Sample[A]] =
-    Stream
-      .emits(data.toVector)
-      .sliding(sampleSize)
+    toStream
+      .vectorChunkN(sampleSize)
       .zipWithIndex
       .map(vi => Sample(depth, rows, cols, vi._2, vi._1.toArray))
       .toList
 
-   */
-
   def toMatrices: List[Matrix[A]] =
-    Stream
-      .emits(data.toVector)
-      .sliding(step)
+    toStream
+      .vectorChunkN(step)
       .map(vec => Matrix(rows, cols, vec.toArray))
       .toList
 
@@ -187,9 +173,14 @@ class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(im
     } else {
       Matrix.empty[A]
     }
+
+  def toStream: Stream[Pure, A] = Stream.emits(data.elems).pure
+
+  override def toString: String = s"Tensor@(samples, dimensions, rows(><)columns): $nsamples, $depth, $rows><$cols"
+
 }
 
-object Tensor {
+object Tensor extends TensorInstances {
 
   import Generator.rng
 
@@ -229,18 +220,27 @@ object Tensor {
    * Neural Networks: tricks of the trade, pages 9-48.  Springer, 1998.
    */
   def lecun[A: ClassTag: Numeric](samples: Int, depth: Int, rows: Int, cols: Int, rand: Generator = rng): Tensor[A] =
-    uniform[A](samples, depth, rows, cols, math.sqrt(3 / (depth * rows * cols)))
+    uniform[A](samples, depth, rows, cols, math.sqrt(3 / depth * rows * cols))
 
   /**
    * X. Glorot and Y. Bengio.  Understanding the difficulty of training deep feedforward neural networks.
    * In AISTATS, 2010.
    */
   def glorotUniform[A: ClassTag: Numeric](samples: Int, depth: Int, rows: Int, cols: Int, rand: Generator = rng): Tensor[A] =
-    uniform[A](samples, depth, rows, cols, math.sqrt(2 / ((depth * rows * cols) + (samples * rows * cols))))
+    uniform[A](samples, depth, rows, cols, math.sqrt(2 / depth * rows * cols + samples * rows * cols))
 
 }
 
-abstract sealed class TensorInstances {
+abstract sealed class TensorInstances extends TensorInstances0
+
+abstract sealed class TensorInstances0 extends TensorInstances1 {
+  implicit def tensorCanShow[A](implicit ev: Show[A]): Show[Tensor[A]] =
+    new Show[Tensor[A]] {
+      def show(fa: Tensor[A]): String = fa.toString
+    }
+}
+
+abstract sealed class TensorInstances1 {
   /**
   implicit val tensorsAreThese: TraverseFilter[Tensor] with MonadCombine[Tensor] with CoflatMap[Tensor] =
     new TraverseFilter[Tensor] with MonadCombine[Tensor] with CoflatMap[Tensor] {

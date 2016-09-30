@@ -97,6 +97,11 @@ lazy val mathlibs = Seq(
   "org.spire-math"         %% "spire"            % versions.spire
 )
 
+lazy val breezelibs = Seq(
+  "org.scalanlp" %% "breeze" % versions.breeze,
+  "org.scalanlp" %% "breeze-natives" % versions.breeze
+)
+
 lazy val graphlibs = Seq(
   "io.verizon.quiver" %% "core" % versions.quiver
 )
@@ -126,6 +131,7 @@ libraryDependencies ++= (
     mathlibs ++
     testlibs ++
     graphlibs ++
+    breezelibs ++
     netlib)
 
 evictionWarningOptions in update := EvictionWarningOptions.default
