@@ -57,6 +57,7 @@ lazy val versions = new {
   val nscalatime = "2.12.0"
   val quiver = "5.4.9"
   val scalacheck = "1.13.2"
+  val scalameter = "0.7"
   val scalatest = "3.0.0"
   val scalaj = "2.3.0"
   val scrimage = "2.1.7"
@@ -112,7 +113,8 @@ lazy val httplibs = Seq(
 
 lazy val testlibs = Seq(
   "org.scalacheck" %% "scalacheck" % versions.scalacheck,
-  "org.scalatest" %% "scalatest" % versions.scalatest
+  "org.scalatest" %% "scalatest" % versions.scalatest,
+  "com.storm-enroute" %% "scalameter-core" % versions.scalameter
 )
 
 lazy val netlib = Seq(
