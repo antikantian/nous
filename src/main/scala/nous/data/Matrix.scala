@@ -10,7 +10,7 @@ import fs2.Task
 import nous.kernels.matrix._
 import spire.algebra._
 import spire.math._
-
+/**
 /** Assumes row-major order */
 class Matrix[A](val m: Int, val n: Int)(values: Array[A], private[nous] val isTransposed: Boolean = false) { self =>
 
@@ -209,3 +209,5 @@ object Matrix extends MatrixInstances {
 abstract sealed class MatrixInstances {
 
 }
+
+ */

@@ -1,214 +1,55 @@
 package nous.kernels
 
+import fs2._
 import nous.kernels.convolution._
 import org.scalameter._
 import org.scalatest.FunSuite
 import spire.implicits._
-import spire.math.Rational
+import spire.math.{ConvertableTo, Rational, Numeric}
+import spire.random._
 
 class ConvolutionKernelTest extends FunSuite {
 
-  test("convolution 1d with rational") {
-    val time = measure {
-      println("----------")
-      println("Convolution 1D with rational")
-      val input = Vector[Rational](10, 50, 60, 10, 20, 40, 30)
-      val kernel = Vector[Rational](Rational(1, 3), Rational(1, 3), Rational(1, 3))
-      val expected = Vector[Rational](20, 40, 40, 30, 20, 30, Rational(2333, 100))
-
-      val calculated = conv1(input, kernel)
-      println(s"Input: [${input.mkString(", ")}]")
-      println(s"Kernel: [${kernel.mkString(", ")}]")
-      println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
-    }
-    println(s"Test completed in: $time\n----------\n")
-  }
+  import ConvolutionKernelTest._
 
   test("convolution 1d with float") {
     val time = measure {
-      println("----------")
-      println("Convolution 1D with float")
       val input = Vector[Float](10, 50, 60, 10, 20, 40, 30)
       val kernel = Vector[Float](0.3f, 0.3f, 0.3f)
-      val expected = Vector[Float](20f, 40f, 40f, 30f, 20f, 30f, 23.333f)
-      val calculated = conv1(input, kernel)
-      println(s"Input: [${input.mkString(", ")}]")
-      println(s"Kernel: [${kernel.mkString(", ")}]")
-      println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
+      conv1(input, kernel)
     }
-    println(s"Test completed in: $time\n----------\n")
+    println(s"conv1 with float took: $time")
   }
 
   test("convolution 1d with double") {
     val time = measure {
-      println("----------")
-      println("Convolution 1D with double")
       val input = Vector[Double](10, 50, 60, 10, 20, 40, 30)
       val kernel = Vector[Double](0.3d, 0.3d, 0.3d)
-      val expected = Vector[Double](20d, 40d, 40d, 30, 20d, 30d, 23.333d)
-      val calculated = conv1(input, kernel)
-      println(s"Input: [${input.mkString(", ")}]")
-      println(s"Kernel: [${kernel.mkString(", ")}]")
-      println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
+      conv1(input, kernel)
     }
-    println(s"Test completed in: $time\n----------\n")
+    println(s"conv1 with double took: $time")
   }
 
-  test("convolution 1d with int") {
-    val time = measure {
-      println("----------")
-      println("Convolution 1D with int")
-      val input = Vector[Int](10, 50, 60, 10, 20, 40, 30)
-      val kernel = Vector[Int](3, 1, 2)
-      val expected = Vector[Int](20, 40, 40, 30, 20, 30, 23)
-      val calculated = conv1(input, kernel)
-      println(s"Input: [${input.mkString(", ")}]")
-      println(s"Kernel: [${kernel.mkString(", ")}]")
-      println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
+  test("im2col with float") {
+    val channels = 3
+    val height = 5
+    val width = 5
+    val kernel = 3
+    val stride = 2
+    val pad = 1
+    val input5x5x3float = makeRandom[Float](5, 5, 3)
+    val input28x28x32float = makeRandom[Float](28, 28, 32)
+
+    val time1 = measure {
+      im2col(input5x5x3float, channels, height, width, kernel, stride, pad)
     }
-    println(s"Test completed in: $time\n----------\n")
-  }
+    println(s"im2colImpl2 5x5x3 with float: $time1")
 
-  test("naive convolution 2d with int") {
-    val time = measure {
-      println("----------")
-      println("Convolution 2D with int")
-      val input = Vector[Int](
-        0, 1, 1, 1, 0,
-        1, 0, 1, 1, 1,
-        1, 2, 0, 0, 2,
-        1, 2, 1, 1, 1,
-        0, 0, 2, 0, 0,
-
-        2, 0, 0, 2, 2,
-        0, 0, 2, 0, 2,
-        2, 2, 1, 0, 1,
-        2, 1, 2, 2, 2,
-        2, 0, 0, 2, 1,
-
-        0, 2, 0, 0, 0,
-        0, 2, 1, 1, 1,
-        1, 2, 1, 0, 2,
-        1, 1, 2, 2, 1,
-        2, 1, 1, 0, 0)
-
-      val kernel = Vector[Int](
-        0,-1, 0,
-        0, 0,-1,
-        0,-1,-1,
-
-        -1, 1,-1,
-        0,-1, 1,
-        1, 0, 1,
-
-        1, 1, 0,
-        -1,-1, 0,
-        1, 1, 1)
-
-      val stride = 2
-      val padding = 1
-      val calculated = naiveConv2(input, kernel, padding, stride).toVector
-      println(s"Input: [${input.mkString(", ")}]")
-      println(s"Kernel: [${kernel.mkString(", ")}]")
-      //println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
+    val time2 = measure {
+      im2col(input28x28x32float, 32, 28, 28, 3, 1, 0)
     }
-    println(s"Test completed in: $time\n----------\n")
+    println(s"im2colImpl2 28x28x32 with float: $time2")
   }
-
-  test("im2col with int") {
-    val time = measure {
-      println("----------")
-      println("im2col with int")
-      val input = Vector[Int](
-        0, 1, 1, 1, 0,
-        1, 0, 1, 1, 1,
-        1, 2, 0, 0, 2,
-        1, 2, 1, 1, 1,
-        0, 0, 2, 0, 0,
-
-        2, 0, 0, 2, 2,
-        0, 0, 2, 0, 2,
-        2, 2, 1, 0, 1,
-        2, 1, 2, 2, 2,
-        2, 0, 0, 2, 1,
-
-        0, 2, 0, 0, 0,
-        0, 2, 1, 1, 1,
-        1, 2, 1, 0, 2,
-        1, 1, 2, 2, 1,
-        2, 1, 1, 0, 0)
-
-      val channels = 3
-      val height = 5
-      val width = 5
-      val kernel = 3
-      val stride = 2
-      val pad = 1
-      val calculated = im2col(input, channels, height, width, kernel, stride, pad)
-      println(s"Input: [${input.mkString(", ")}]")
-      //println(s"Expected: [${expected.mkString(", ")}]")
-      println(s"Calculated: [${calculated.mkString(", ")}]")
-      //assert(calculated == expected)
-
-      val maxCores = Runtime.getRuntime.availableProcessors
-      println(s"Available cores: $maxCores")
-      (1 to maxCores) foreach { core =>
-        val ctime = measure {
-          im2col(input, channels, height, width, kernel, stride, pad, Some(core))
-        }
-        println(s"with $core core(s): $ctime")
-      }
-    }
-    println(s"Test completed in: $time\n----------\n")
-  }
-
-  lazy val testInput2D =
-    Array[Float](
-      1, 1, 1, 1, 1,
-      1, 2, 2, 2, 1,
-      1, 0, 0, 0, 1,
-      1, 3, 3, 3, 1,
-      1, 1, 1, 1, 1,
-
-      2, 2, 2, 2, 2,
-      2, 1, 1, 1, 2,
-      2, 0, 0, 0, 2,
-      2, 4, 4, 4, 2,
-      2, 2, 2, 2, 2,
-
-      3, 3, 3, 3, 3,
-      3, 2, 2, 2, 3,
-      3, 0, 0, 0, 3,
-      3, 5, 5, 5, 3,
-      3, 3, 3, 3, 3)
-
-  lazy val testKernel2D =
-    Array[Float](
-      -1, 0, 1,
-      -1, 1, 0,
-      -1, 0, 1,
-
-      1, -1, 0,
-      0, -1, 1,
-      1, -1, 0,
-
-      0, 0, -1,
-      1, 1, -1,
-      0, 0, -1)
-
-  lazy val testBias =
-    Array[Float](1, 0, 1)
-
 }
 
 object ConvolutionKernelTest {
@@ -283,4 +124,15 @@ object ConvolutionKernelTest {
       1, 1, 0,
      -1,-1, 0,
       1, 1, 1)
+
+  def makeRandom[A](rows: Int, cols: Int, channels: Int)(implicit ev: Numeric[A], ev1: ConvertableTo[A]) = {
+    val lower = -5.0
+    val upper = 5.0
+    val distribution = Uniform(lower, upper)
+    Stream
+      .repeatEval(Task.delay(ev.fromDouble(distribution.apply(Generator.rng))))
+      .take(rows * cols * channels)
+      .runLog
+      .unsafeRun
+  }
 }

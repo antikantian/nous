@@ -15,6 +15,7 @@ import spire.math._
 import spire.random._
 import spire.implicits._
 
+/**
 class Tensor[A](numSamples: Int, d: Int, nr: Int, nc: Int)(values: Buffer[A])(implicit ct: ClassTag[A]) { self =>
   val data = values
   val size = values.length
@@ -315,3 +316,4 @@ abstract sealed class TensorInstances1 {
     }
     */
 }
+*/
