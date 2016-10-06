@@ -2,6 +2,8 @@ package nous.free
 
 import cats._
 import cats.free.Free
+import nous.network.definitions.ConvDefinition
+import nous.network.layers.{Activation, LambdaInjection, WeightInit}
 
 object functors {
 
@@ -62,7 +64,24 @@ object functors {
       pad       : Int): ConvF[Array[A]] = {
     Free.liftF[ConvOp, Array[A]](Im2Col(input, channels, height, width, kernel, stride, pad))
   }
-
   //---> End Conv Functors <---
+
+  //---> Layer Def Functors <---
+  type LayerDefF[A] = Free[LayerDefOp, A]
+  def convolution[A](
+      filters         : Int,
+      height          : Int,
+      width           : Int,
+      stride          : Int,
+      padding         : Int,
+      bias            : Boolean,
+      initialization  : WeightInit[A],
+      activation      : Activation[A],
+      lambda          : Option[LambdaInjection[A]] = None): LayerDefF[ConvDefinition[A]] = {
+    Free.liftF[LayerDefOp, ConvDefinition[A]] {
+      ConvolutionLayer(filters, height, width, stride, padding, bias, initialization, activation, lambda)
+    }
+  }
+  //---> End Layer Def Functors <---
 
 }

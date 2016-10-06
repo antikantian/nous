@@ -7,18 +7,29 @@ import cats.data._
 import cats.data.Validated.{ Invalid, Valid }
 import fs2._
 import nous.data.Sample.samplesMatch
+import nous.network.layers._
 import nous.util.exception._
 import spire.math._
 
 class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
+
   val data = samples
+
   val size = data.length
+
   val xChannels = if (data.isEmpty) 0 else samples.head.channels
+
   val xHeight = if (data.isEmpty) 0 else samples.head.height
+
   val xWidth = if (data.isEmpty) 0 else samples.head.width
+
+  val shape = Shape(size, xChannels, xHeight, xWidth)
 
   def ++(rhs: Batch[A, T]): Batch[A, T] =
     Semigroup[Batch[A, T]].combine(self, rhs)
+
+  def foreach(f: Sample[A, T] => Unit): Unit =
+    data foreach f
 
   def map[B: ClassTag: Numeric](f: Sample[A, T] => Sample[B, T]): Batch[B, T] =
     new Batch(data.map(f))
@@ -37,6 +48,8 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
 
   def getSample(n: Int): Option[Sample[A, T]] =
     data.find(_.sample == n)
+
+  def targets: Vector[T] = data.map(_.target)
 
   def renumberAll(snums: Vector[Int]) = {
     val renumbered =

@@ -3,8 +3,10 @@ package nous.free
 import scala.reflect.ClassTag
 
 import cats._
+import cats.data._
 import nous.kernels.convolution
 import nous.kernels.matrix
+import nous.network.definitions._
 
 object interpreters {
 
@@ -12,23 +14,18 @@ object interpreters {
   import functors._
 
   /**
-  val defaultBlasInterpreter: BlasOp ~> Id =
-    new (BlasOp ~> Id) {
-      def apply[A](fa: BlasOp[A]): Id[Trivial] =
+
+  type NetworkDefinition[F[_], A, B] = State[Vector[LayerDefinition[A]], B]
+  val defaultLayerBuilder: LayerDefOp ~> NetworkDefinition =
+    new (LayerDefOp ~> NetworkDefinition) {
+      def apply[F[_], A, B, C](fa: LayerDefOp[C]): NetworkDefinition[F, A, B] =
         fa match {
-          case Gemm(ta, tb, m, n, k, al, a, b, be) =>
-            matrix.gemm(ta, tb, m, n, k, al, a, b, be)
-            Trivial.catsTrivialInstance
+          case x: ConvDefinition[A] =>
+            State[Vector[LayerDefinition[A]], B] { layers =>
+              (layers :+ ConvDefinition(x.filters, x.height, x.width, x.stride, x.padding, x.bias, x.initialization, x.activation, x.lambda), Trivial)
+            }
         }
     }
 
-  val defaultConvInterpreter: ConvOp ~> Eval[?] =
-    new (ConvOp ~> Eval[?]) {
-      def apply[A](fa: ConvOp[A]): Eval[A] =
-        fa match {
-          case Im2Col(input, c, h, w, k, s, p) => Eval.now(convolution.im2col(input, c, h, w, k, s, p)).map(_.asInstanceOf[A])
-        }
-    }
    */
-
 }

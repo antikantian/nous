@@ -8,7 +8,10 @@ import spire.implicits._
 
 object loss {
 
-  def mse[A: Field: Num](y: Vector[A], target: Vector[A]): A =
-    (target - y).map(_ ** 2).sum / y.length
+  def mse[A](pred: Vector[A], target: Vector[A])(implicit f: Field[A]): A =
+    (pred - target).map(a => f.pow(a, 2)).foldLeft(f.zero)(_ + _) / pred.size
+
+  def mae[A](pred: Vector[A], target: Vector[A])(implicit ev: Signed[A], f: Field[A]): A =
+    (pred - target).map(ev.abs).foldLeft(f.zero)(_ + _) / pred.size
 
 }

@@ -14,8 +14,27 @@ package object layers {
   type OutputShape = Shape
   type LambdaInjection[A] = (LayerInput[A] => LayerOutput[A], LayerOutput[A] => Vector[A])
 
+  case class Shape(s: Int, k: Int, m: Int, n: Int) {
+    def is1d = {
+      s == 1 && k == 1 && m == 1 && n > 1
+    }
+
+    def is2d = {
+      s == 1 && k == 1 && m > 1 && is1d
+    }
+
+    def is3d = {
+      s == 1 && k > 1 && is2d
+    }
+
+    def is4d = s > 1 && is3d
+
+  }
+
+  /**
   sealed trait Shape
   case class Shape3D(samples: Int, timesteps: Int, inputs: Int) extends Shape
   case class Shape4D(samples: Int, channels: Int, height: Int, width: Int) extends Shape
+   */
 
 }

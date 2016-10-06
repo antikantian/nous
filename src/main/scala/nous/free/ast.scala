@@ -1,6 +1,8 @@
 package nous.free
 
 import cats._
+import nous.network.definitions._
+import nous.network.layers._
 
 object ast {
 
@@ -53,5 +55,25 @@ object ast {
       pad       : Int)
     extends ConvOp[Array[A]]
   //---> End Convolution Operations <---
+
+  //---> Layer Definitions <---
+  sealed trait LayerDefOp[A]
+  case class ConvolutionLayer[A](
+      filters         : Int,
+      height          : Int,
+      width           : Int,
+      stride          : Int,
+      padding         : Int,
+      bias            : Boolean,
+      initialization  : WeightInit[A],
+      activation      : Activation[A],
+      lambda          : Option[LambdaInjection[A]] = None)
+    extends LayerDefOp[ConvDefinition[A]]
+  //---> End Layer Definitions <---
+
+  //---> Network Creation Operations <---
+  sealed trait NetDefOp[A]
+  case class AddLayer[A](layer: LayerDefinition[A]) extends NetDefOp[Unit]
+  //---> End Network Creation Operations <---
 
 }

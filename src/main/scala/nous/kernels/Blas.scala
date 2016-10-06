@@ -1,4 +1,4 @@
-package nous.util
+package nous.kernels
 
 import cats.Eval
 import com.github.fommil.netlib.BLAS
