@@ -11,11 +11,50 @@ import cats.data._
 import fs2._
 import nous.data._
 import nous.data.Coord._
-import spire.algebra.Field
+import spire.algebra._
 import spire.math._
 import spire.implicits._
 
 object convolution {
+
+  def pool[A](
+      input     : Channel[A],
+      winH      : Int,
+      winW      : Int,
+      strideH   : Int,
+      strideW   : Int,
+      paddingH  : Int,
+      paddingW  : Int,
+      maxpool   : Boolean)(
+      implicit
+      ord       : Order[A],
+      field     : Field[A],
+      ct        : ClassTag[A]): Channel[A] = {
+
+    val inputH = input.height
+    val inputW = input.width
+
+    val pooledH = (inputH + 2 * paddingH - winH) / strideH + 1
+    val pooledW = (inputW + 2 * paddingW - winW) / strideW + 1
+
+    val outArray = ct.newArray(pooledH * pooledW)
+
+    val w_offset = winW / 2 - paddingW
+    val h_offset = winH / 2 - paddingH
+
+    cfor(0)(_ < pooledH, _ + 1) { h =>
+      cfor(0)(_ < pooledW, _ + 1) { w =>
+        val overlay = Rectangle.centered(w * strideW + w_offset, h * strideH + h_offset, winW, winH)
+        val window = input.subchannel(overlay)
+
+        if (maxpool)
+          outArray.update(h * pooledW + w, window.tail.foldLeft(window.head)(ord.max))
+        else
+          outArray.update(h * pooledW + w, window.foldLeft(field.zero)(_ + _) / window.size)
+      }
+    }
+    Channel(pooledH, pooledW, outArray.toVector)
+  }
 
   def im2col[A](
       input     : Vector[A],
@@ -23,14 +62,16 @@ object convolution {
       height    : Int,
       width     : Int,
       kernel    : Int,
-      stride    : Int,
-      pad       : Int)(
+      strideH   : Int,
+      strideW   : Int,
+      paddingH  : Int,
+      paddingW  : Int)(
       implicit
-      ev        : Numeric[A],
+      field     : Field[A],
       ct        : ClassTag[A]): Array[A] = {
 
-    val height_col = (height + 2 * pad - kernel) / stride + 1
-    val width_col = (width + 2 * pad - kernel) / stride + 1
+    val height_col = (height + 2 * paddingH - kernel) / strideH + 1
+    val width_col = (width + 2 * paddingW - kernel) / strideW + 1
     val channels_col = channels * kernel * kernel
 
     val outArray = ct.newArray(height_col * width_col * channels_col)
@@ -41,12 +82,12 @@ object convolution {
       val c_im = c / kernel / kernel
       cfor(0)(_ < height_col, _ + 1) { h =>
         cfor(0)(_ < width_col, _ + 1) { w =>
-          val h_pad = h * stride - pad + h_offset
-          val w_pad = w * stride - pad + w_offset
+          val h_pad = h * strideH - paddingH + h_offset
+          val w_pad = w * strideH - paddingW + w_offset
           if (h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width)
             outArray.update((c * height_col + h) * width_col + w, input((c_im * height + h_pad) * width + w_pad))
           else
-            ev.zero
+            field.zero
         }
       }
     }
@@ -59,14 +100,16 @@ object convolution {
       height    : Int,
       width     : Int,
       kernel    : Int,
-      stride    : Int,
-      pad       : Int)(
+      strideH   : Int,
+      strideW   : Int,
+      paddingH  : Int,
+      paddingW  : Int)(
       implicit
-      ev        : Numeric[A],
+      field     : Field[A],
       ct        : ClassTag[A]): Array[A] = {
 
-    val height_col = (height + 2 * pad - kernel) / stride + 1
-    val width_col = (width + 2 * pad - kernel) / stride + 1
+    val height_col = (height + 2 * paddingH - kernel) / strideH + 1
+    val width_col = (width + 2 * paddingW - kernel) / strideW + 1
     val channels_col = channels * kernel * kernel
 
     val outArray = ct.newArray(height * width * channels)
@@ -77,8 +120,8 @@ object convolution {
       val c_im = c / kernel / kernel
       cfor(0)(_ < height_col, _ + 1) { h =>
         cfor(0)(_ < width_col, _ + 1) { w =>
-          val h_pad = h * stride - pad + h_offset
-          val w_pad = w * stride - pad + w_offset
+          val h_pad = h * strideH - paddingH + h_offset
+          val w_pad = w * strideW - paddingW + w_offset
           if (h_pad >= 0 && h_pad < height && w_pad >= 0 && w_pad < width) {
             val pv = outArray((c_im * height + h_pad) * width + w_pad)
             outArray.update((c_im * height + h_pad) * width + w_pad, pv + input((c * height_col + h) * width_col + w))

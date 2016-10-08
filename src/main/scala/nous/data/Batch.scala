@@ -31,7 +31,7 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
   def foreach(f: Sample[A, T] => Unit): Unit =
     data foreach f
 
-  def map[B: ClassTag: Numeric](f: Sample[A, T] => Sample[B, T]): Batch[B, T] =
+  def map[B: ClassTag](f: Sample[A, T] => Sample[B, T]): Batch[B, T] =
     new Batch(data.map(f))
 
   def sampleStream: Stream[Pure, Sample[A, T]] = Stream.emits(samples).pure
@@ -68,6 +68,8 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
       }
     new Batch(renumbered.toVector)
   }
+
+  def shuffle: Batch[A, T] = new Batch(scala.util.Random.shuffle(samples))
 
 }
 

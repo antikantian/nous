@@ -41,12 +41,12 @@ class ConvolutionKernelTest extends FunSuite {
     val input28x28x32float = makeRandom[Float](28, 28, 32)
 
     val time1 = measure {
-      im2col(input5x5x3float, channels, height, width, kernel, stride, pad)
+      im2col(input5x5x3float, channels, height, width, kernel, stride, stride, pad, pad)
     }
     println(s"im2colImpl2 5x5x3 with float: $time1")
 
     val time2 = measure {
-      im2col(input28x28x32float, 32, 28, 28, 3, 1, 0)
+      im2col(input28x28x32float, 32, 28, 28, 3, 1, 1, 0, 0)
     }
     println(s"im2colImpl2 28x28x32 with float: $time2")
   }

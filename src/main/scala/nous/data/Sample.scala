@@ -15,10 +15,7 @@ import nous.util.exception._
 import spire.algebra.Eq
 import spire.math._
 
-class Sample[A: ClassTag: Numeric, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int = -1) { self =>
-
-  import Sample._
-
+class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int = -1) { self =>
   val data = x
   val channels = c
   val height = h
@@ -33,31 +30,35 @@ class Sample[A: ClassTag: Numeric, T](c: Int, h: Int, w: Int, x: Vector[A], y: T
   val totalSize = channelSize * depth
 
   def dataStream: Stream[Pure, A] = Stream.emits(data).pure
-  def channelStream: Stream[Pure, Vector[A]] = dataStream.vectorChunkN(channelSize)
+
+  def channelStream: Stream[Pure, Channel[A]] =
+    dataStream.vectorChunkN(channelSize).map(v => Channel(height, width, v))
 
   def indexOf(nchan: Int, nrow: Int, ncol: Int): Int =
     ((depth + nchan) * rows + nrow) * cols + ncol
 
-  def atPosition(nchan: Int, nrow: Int, ncol: Int): A =
-    data.apply { ((depth + nchan) * rows + nrow) * cols + ncol }
+  def atPosition(d: Int, x: Int, y: Int): A =
+    data.apply { ((depth + d) * rows + y) * cols + x }
 
-  def map[B: ClassTag: Numeric](f: A => B): Sample[B, T] =
+  def map[B: ClassTag](f: A => B): Sample[B, T] =
     new Sample(channels, height, width, dataStream.map(f).toVector, target, sample)
+
+  def mapChannels[B: ClassTag](f: Channel[A] => Channel[B]): Sample[B, T] = {
+    val newChannels = channelStream.map(f).toVector
+    val outH = newChannels.head.height
+    val outW = newChannels.head.width
+    new Sample(channels, outH, outW, newChannels.foldLeft(Vector.empty[B])(_ ++ _.data), y, sample)
+  }
 
   def renumber(n: Int) = new Sample[A, T](channels, height, width, data, target, n)
 
   def boundary: Rectangle = Rectangle(0, 0, cols - 1, rows - 1)
 
-  def toCol(kernelSize: Int, stride: Int, padding: Int) = {
-    val colSize = kernelSize * kernelSize * depth
-    val hw = (height - kernelSize) / stride + 1
-    val hw2 = hw * hw
-    val outputArray = im2col(data, channels, height, width, kernelSize, stride, padding)
-    Columned(hw, hw, kernelSize, stride, padding, outputArray.toVector, self)
-  }
+  def update(c: Int, h: Int, w: Int, x: Vector[A]): Sample[A, T] =
+    new Sample(c, h, w, x, target, sample)
 
-  def update(nchan: Int, nh: Int, nw: Int, x: Vector[A]): Sample[A, T] =
-    new Sample(nchan, nh, nw, x, target, sample)
+  def update(x: Vector[A]): Sample[A, T] =
+    new Sample(channels, height, width, x, target)
 
   override def toString =
     s"(Sample $sample) h: $height; w: $width; c: $channels; size: $totalSize"
@@ -66,7 +67,7 @@ class Sample[A: ClassTag: Numeric, T](c: Int, h: Int, w: Int, x: Vector[A], y: T
 
 object Sample {
 
-  case class Columned[A: ClassTag: Numeric, B](
+  case class Columned[A: ClassTag, B](
       h: Int,
       w: Int,
       kernel: Int,
@@ -77,7 +78,7 @@ object Sample {
     def revert = origin
   }
 
-  def apply[A: ClassTag: Numeric, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int): Sample[A, T] =
+  def apply[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int): Sample[A, T] =
     new Sample(c, h, w, x, y, snum)
 
   def samplesMatch[A, T](s1: Sample[A, T], s2: Sample[A, T]): Boolean =
@@ -85,30 +86,15 @@ object Sample {
 
 }
 
-/**
 sealed abstract class SampleInstances {
 
-  implicit def sampleHasZero[A](implicit ev: Numeric[A]): Zero[A] =
-    new Zero[A] {
-      def zero = ev.zero
-    }
-
-  implicit def sampleCanEq[A]: Eq[Sample[A]] =
-    new Eq[Sample[A]] {
-      def eqv(x: Sample[A], y: Sample[A]): Boolean = {
-        x.rows == y.rows && x.cols == y.cols && x.depth == y.depth
+  implicit def sampleCanEq[A, T]: Eq[Sample[A, T]] =
+    new Eq[Sample[A, T]] {
+      def eqv(x: Sample[A, T], y: Sample[A, T]): Boolean = {
+        x.rows == y.rows && x.cols == y.cols && x.depth == y.depth && x.data.length == y.data.length
       }
     }
 
-  implicit def sampleIsMonoid[A: ClassTag]: Monoid[Sample[A]] =
-    new Monoid[Sample[A]] {
-      def combine(x: Sample[A], y: Sample[A]): Sample[A] =
-        Sample(x.depth, x.rows, x.cols, x.number, x.data ++ y.data)
-
-      def empty = Sample.empty[A](0, 0, 0)
-
-    }
-
 }
- */
+
 

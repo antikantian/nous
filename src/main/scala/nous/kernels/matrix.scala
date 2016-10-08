@@ -1,11 +1,12 @@
 package nous.kernels
 
+import spire.algebra._
 import spire.math._
 import spire.implicits._
 
 object matrix {
 
-  def gemm_ref[A: Numeric](
+  def gemm_ref[A](
       transA  : String,
       transB  : String,
       m       : Int,
@@ -15,7 +16,9 @@ object matrix {
       a       : Array[A],
       b       : Array[A],
       beta    : A,
-      c       : Array[A]): Unit = {
+      c       : Array[A])(
+      implicit
+      field: Field[A]): Unit = {
 
     val lda = if (transA == "N") k else m
     val ldb = if (transB == "N") n else k
@@ -51,7 +54,7 @@ object matrix {
       case (false, true) =>
         cfor(0)(_ < m, _ + 1) { i =>
           cfor(0)(_ < n, _ + 1) { j =>
-            var s = implicitly[Numeric[A]].zero
+            var s = field.zero
             cfor(0)(_ < k, _ + 1) { kk =>
               s = s + alpha * a(i * lda + kk) * b(j * ldb + kk)
             }
@@ -62,7 +65,7 @@ object matrix {
       case _ =>
         cfor(0)(_ < m, _ + 1) { i =>
           cfor(0)(_ < n, _ + 1) { j =>
-            var s = implicitly[Numeric[A]].zero
+            var s = field.zero
             cfor(0)(_ < k, _ + 1) { kk =>
               s = s + alpha * a(i + kk * lda) * b(kk + j * ldb)
             }

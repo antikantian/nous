@@ -1,6 +1,7 @@
 package nous.free
 
 import cats._
+import nous.network._
 import nous.network.definitions._
 import nous.network.layers._
 
@@ -66,7 +67,7 @@ object ast {
       padding         : Int,
       bias            : Boolean,
       initialization  : WeightInit[A],
-      activation      : Activation[A],
+      activation      : ActivationF[A],
       lambda          : Option[LambdaInjection[A]] = None)
     extends LayerDefOp[ConvDefinition[A]]
   //---> End Layer Definitions <---

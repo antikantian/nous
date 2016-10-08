@@ -5,7 +5,6 @@ import fs2._
 import nous.data._
 
 package object layers {
-  type Activation[A] = A => A
   type WeightInit[A] = Stream[Task, A]
   type LayerInput[A] = Batch[A, A]
   type LayerOutput[A] = Batch[A, A]
@@ -30,11 +29,5 @@ package object layers {
     def is4d = s > 1 && is3d
 
   }
-
-  /**
-  sealed trait Shape
-  case class Shape3D(samples: Int, timesteps: Int, inputs: Int) extends Shape
-  case class Shape4D(samples: Int, channels: Int, height: Int, width: Int) extends Shape
-   */
 
 }

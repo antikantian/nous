@@ -4,20 +4,22 @@ import scala.language.higherKinds
 import scala.reflect.ClassTag
 
 import nous.kernels.Blas
+import nous.kernels.activations
 import nous.kernels.convolution._
 import nous.network.definitions._
 import nous.util.exception._
 import spire.algebra._
 import spire.math._
 
-class Convolution[A: ClassTag: Numeric](cdef: ConvDefinition[A], input: Shape, w: Vector[A])(
-    implicit mat: Blas[A]) extends HiddenLayer[A] { self =>
+class Convolution[A: ClassTag](cdef: ConvDefinition[A], input: Shape, w: Vector[A])(
+    implicit val field: Field[A], val linalg: Blas[A]) extends FunctionLayer[A] { self =>
 
   val definition = cdef
+  val activate = cdef.activation.getOrElse(activations.linear[A] _)
   val weights = w
   val bias =
     if (cdef.bias)
-      Vector.fill(definition.filters)(zero)
+      Vector.fill(definition.filters)(field.zero)
     else
       Vector.empty[A]
 
@@ -25,8 +27,10 @@ class Convolution[A: ClassTag: Numeric](cdef: ConvDefinition[A], input: Shape, w
   val filterSize = definition.height
   val height = definition.height
   val width = definition.width
-  val stride = definition.stride
-  val padding = definition.padding
+  val strideH = definition.strideH
+  val strideW = definition.strideW
+  val paddingH = if (strideH != 0) 0 else height / 2
+  val paddingW = if (strideW != 0) 0 else width / 2
 
   val numBiases = bias.length
   val numWeights = weights.length
@@ -40,24 +44,29 @@ class Convolution[A: ClassTag: Numeric](cdef: ConvDefinition[A], input: Shape, w
 
   val outputN = input.s
   val outputC = filters
-  val outputH = Convolution.getOutputSize(inputH, filterSize, stride, padding)
-  val outputW = outputH
+  val outputH = Convolution.getOutputSize(inputH, filterSize, strideH, paddingH)
+  val outputW = Convolution.getOutputSize(inputH, filterSize, strideW, paddingW)
   val outputShape = Shape(outputN, outputC, outputH, outputW)
 
-  private[network] def zero(implicit ev: Numeric[A]): A = ev.zero
-  private[network] def one(implicit ev: Numeric[A]): A = ev.one
-
-  def forward(x: LayerInput[A])(implicit ev: Field[A]): LayerOutput[A] = {
+  def forward(x: LayerInput[A]): LayerOutput[A] = {
     x map { sample =>
-      val col = im2col(sample.data, sample.channels, sample.height, sample.width, filterSize, stride, padding)
+      val col = im2col(sample.data, sample.channels, sample.height, sample.width, filterSize, strideH, strideW, paddingH, paddingW)
       // Be wary of the transpose; we're storing row-major, BLAS is column-major
+      // a : im2col(input_image)
+      // b : weights
       // m : rows of a == rows of c
       // n : cols of b == cols of c
       // k : cols of a == rows of b
-      val m = filters
-      val n = outputH * outputW
-      val k = filterSize * filterSize * sample.channels
-      val y = mat.gemm("N", "T", m, n, k, one, col, weights.toArray, one)
+      val a_m = filterSize * filterSize * sample.depth
+      val a_n = outputH * outputW
+      val b_m = filters
+      val b_n = a_m
+      val c_m = b_m
+      val c_n = a_n
+      val m = a_m
+      val n = b_n
+      val k = a_n
+      val y = linalg.gemm("N", "T", m, n, k, field.one, col, weights.toArray, field.one)
       if (bias.nonEmpty) {
         val yb =
           y.grouped(outputH * outputW)
@@ -65,11 +74,11 @@ class Convolution[A: ClassTag: Numeric](cdef: ConvDefinition[A], input: Shape, w
             .zip(bias)
             .flatMap { outcb =>
               val (outputChannel, bias) = outcb
-              outputChannel.map(element => ev.plus(element, bias))
+              outputChannel.map(element => field.plus(element, bias))
             }
-        sample.update(outputC, outputH, outputW, activate(yb.toVector))
+        sample.update(outputC, outputH, outputW, yb.toVector.map(activate))
       } else {
-        sample.update(outputC, outputH, outputW, activate(y.toVector))
+        sample.update(outputC, outputH, outputW, y.toVector.map(activate))
       }
     }
   }

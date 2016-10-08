@@ -1,6 +1,7 @@
 package nous
 
 import nous.data.{ Batch, Sample }
+import nous.datasets.mnist.{ trainingSamples, testingSamples }
 
 object StaticData {
 
@@ -35,5 +36,15 @@ object StaticData {
   val sample3x5x5 = new Sample(3, 5, 5, input5x5x3, 999d)
 
   val batch1x3x5x5 = new Batch(Vector(sample3x5x5))
+
+  def mnistTrain(batchSize: Int) =
+    trainingSamples.vectorChunkN(batchSize) map { samples =>
+      new Batch[Float, Float](samples)
+    }
+
+  def mnistTest(batchSize: Int) =
+    testingSamples.vectorChunkN(batchSize) map { samples =>
+      new Batch[Float, Float](samples)
+    }
 
 }

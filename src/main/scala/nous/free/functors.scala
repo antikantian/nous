@@ -2,8 +2,9 @@ package nous.free
 
 import cats._
 import cats.free.Free
-import nous.network.definitions.ConvDefinition
-import nous.network.layers.{Activation, LambdaInjection, WeightInit}
+import nous.network._
+import nous.network.definitions._
+import nous.network.layers._
 
 object functors {
 
@@ -76,7 +77,7 @@ object functors {
       padding         : Int,
       bias            : Boolean,
       initialization  : WeightInit[A],
-      activation      : Activation[A],
+      activation      : ActivationF[A],
       lambda          : Option[LambdaInjection[A]] = None): LayerDefF[ConvDefinition[A]] = {
     Free.liftF[LayerDefOp, ConvDefinition[A]] {
       ConvolutionLayer(filters, height, width, stride, padding, bias, initialization, activation, lambda)
