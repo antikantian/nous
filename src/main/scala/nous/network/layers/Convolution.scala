@@ -3,26 +3,22 @@ package nous.network.layers
 import scala.language.higherKinds
 import scala.reflect.ClassTag
 
+import nous.data._
 import nous.kernels.Blas
-import nous.kernels.activations
 import nous.kernels.convolution._
 import nous.network.definitions._
 import nous.util.exception._
+import nous.util.Shape
 import spire.algebra._
 import spire.math._
 
-class Convolution[A: ClassTag](cdef: ConvDefinition[A], input: Shape, w: Vector[A])(
+class Convolution[A: ClassTag](cdef: ConvDefinition[A], in: InputShape, w: Vector[A], id: Int = -1)(
     implicit val field: Field[A], val linalg: Blas[A]) extends FunctionLayer[A] { self =>
 
+  val layerID = id
+  val layerLabel = "conv"
   val definition = cdef
-  val activate = cdef.activation.getOrElse(activations.linear[A] _)
-  val weights = w
-  val bias =
-    if (cdef.bias)
-      Vector.fill(definition.filters)(field.zero)
-    else
-      Vector.empty[A]
-
+  val activate = cdef.activation
   val filters = definition.filters
   val filterSize = definition.height
   val height = definition.height
@@ -32,21 +28,26 @@ class Convolution[A: ClassTag](cdef: ConvDefinition[A], input: Shape, w: Vector[
   val paddingH = if (strideH != 0) 0 else height / 2
   val paddingW = if (strideW != 0) 0 else width / 2
 
-  val numBiases = bias.length
-  val numWeights = weights.length
-  val numParameters = numWeights + numBiases
+  val W = {
+    val w_length = (in.r * in.c * in.k) * filters
+    assert(w.length == w_length, s"Provided weights don't match expected length of $w_length")
+    Weights(filters, in.k, height, width, w)
+  }
 
-  val inputN = input.s
-  val inputC = input.k
-  val inputH = input.m
-  val inputW = input.n
-  val inputShape = Shape(inputN, inputC, inputH, inputW)
+  val bias =
+    if (definition.bias)
+      Vector.fill(definition.filters)(field.zero)
+    else
+      Vector.empty[A]
 
-  val outputN = input.s
+  val inputShape = in
+  val outputN = inputShape.n
   val outputC = filters
-  val outputH = Convolution.getOutputSize(inputH, filterSize, strideH, paddingH)
-  val outputW = Convolution.getOutputSize(inputH, filterSize, strideW, paddingW)
+  val outputH = Convolution.getOutputSize(inputShape.r, filterSize, strideH, paddingH)
+  val outputW = Convolution.getOutputSize(inputShape.c, filterSize, strideW, paddingW)
   val outputShape = Shape(outputN, outputC, outputH, outputW)
+
+  def renumber(n: Int): Convolution[A] = new Convolution[A](definition, inputShape, w, n)
 
   def forward(x: LayerInput[A]): LayerOutput[A] = {
     x map { sample =>
@@ -66,7 +67,7 @@ class Convolution[A: ClassTag](cdef: ConvDefinition[A], input: Shape, w: Vector[
       val m = a_m
       val n = b_n
       val k = a_n
-      val y = linalg.gemm("N", "T", m, n, k, field.one, col, weights.toArray, field.one)
+      val y = linalg.gemm("N", "T", m, n, k, field.one, col, W.toArray, field.one)
       if (bias.nonEmpty) {
         val yb =
           y.grouped(outputH * outputW)
@@ -76,15 +77,15 @@ class Convolution[A: ClassTag](cdef: ConvDefinition[A], input: Shape, w: Vector[
               val (outputChannel, bias) = outcb
               outputChannel.map(element => field.plus(element, bias))
             }
-        sample.update(outputC, outputH, outputW, yb.toVector.map(activate))
+        sample.update(outputC, outputH, outputW, yb.toVector)
       } else {
-        sample.update(outputC, outputH, outputW, y.toVector.map(activate))
+        sample.update(outputC, outputH, outputW, y.toVector)
       }
     }
   }
 
   def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
-    weights
+    W.data
   }
 
   def updateW(weights: Vector[A]): Convolution[A] = {

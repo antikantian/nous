@@ -1,6 +1,7 @@
 package nous.network.layers
 
 import nous.network.definitions._
+import nous.util._
 import org.scalatest.FunSuite
 import spire.implicits._
 

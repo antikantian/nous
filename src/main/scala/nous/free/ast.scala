@@ -1,7 +1,7 @@
 package nous.free
 
 import cats._
-import nous.network._
+import nous.network.activations._
 import nous.network.definitions._
 import nous.network.layers._
 

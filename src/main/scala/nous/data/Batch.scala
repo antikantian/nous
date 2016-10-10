@@ -4,12 +4,13 @@ import scala.reflect.ClassTag
 
 import cats._
 import cats.data._
-import cats.data.Validated.{ Invalid, Valid }
+import cats.data.Validated.{Invalid, Valid}
 import fs2._
 import nous.data.Sample.samplesMatch
-import nous.network.layers._
 import nous.util.exception._
-import spire.math._
+import nous.util.Shape
+import spire.algebra.{Field, InnerProductSpace, Order}
+import spire.math.ConvertableFrom
 
 class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
 
@@ -25,11 +26,18 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
 
   val shape = Shape(size, xChannels, xHeight, xWidth)
 
+  val k = xChannels
+  val r = xHeight
+  val c = xWidth
+
   def ++(rhs: Batch[A, T]): Batch[A, T] =
     Semigroup[Batch[A, T]].combine(self, rhs)
 
   def foreach(f: Sample[A, T] => Unit): Unit =
     data foreach f
+
+  def foldLeft[B](b: B)(f: (B, Sample[A, T]) => B): B =
+    data.foldLeft(b)(f)
 
   def map[B: ClassTag](f: Sample[A, T] => Sample[B, T]): Batch[B, T] =
     new Batch(data.map(f))
@@ -41,15 +49,15 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
       stream ++ Stream.emit(sample.data)
     }
 
-  def yStream: Stream[Pure, T] =
-    data.foldLeft(Stream.empty[Pure, T]) { (stream, sample) =>
+  def yStream: Stream[Pure, Vector[T]] =
+    data.foldLeft(Stream.empty[Pure, Vector[T]]) { (stream, sample) =>
       stream ++ Stream.emit(sample.target)
     }
 
   def getSample(n: Int): Option[Sample[A, T]] =
     data.find(_.sample == n)
 
-  def targets: Vector[T] = data.map(_.target)
+  def targets: Vector[Vector[T]] = data.map(_.target)
 
   def renumberAll(snums: Vector[Int]) = {
     val renumbered =
@@ -69,7 +77,17 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
     new Batch(renumbered.toVector)
   }
 
+  def toArray: Array[A] =
+    foldLeft(new Array[A](k * r * c)) { (acc, sample) => acc ++ sample.data.toArray }
+
+  def toVector: Vector[A] =
+    foldLeft(Vector.empty[A]) { (acc, sample) => acc ++ sample.data }
+
   def shuffle: Batch[A, T] = new Batch(scala.util.Random.shuffle(samples))
+
+  def zipWith(s: Seq[A])(f: (Sample[A, T], A) => Sample[A, T]): Batch[A, T] = {
+    new Batch(data.zip(s).map(f.tupled.apply(_)))
+  }
 
 }
 

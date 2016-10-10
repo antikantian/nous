@@ -1,9 +1,9 @@
 package nous.network.layers
 
 import fs2._
-import nous.kernels.activations._
+import nous.network.activations._
 import nous.network.definitions._
-import nous.util.Initializer
+import nous.util._
 import org.scalameter._
 import org.scalatest.FunSuite
 import spire.implicits._
@@ -12,26 +12,24 @@ import spire.algebra._
 
 class ConvolutionTest extends FunSuite {
 
-  def activationFunction[A: Field: Trig] = Some(sigmoid[A] _)
+  val activationF = ReLU[Float]()
+  val testData = nous.StaticData.mnistTrain(1).take(1).runLog.unsafeRun.head
 
   test("convolutional layer definition creation") {
-    ConvDefinition[Double](2, 3, 3, 2, 2, bias = true, Initializer.uniform[Double](-1, 1), activationFunction)
+    ConvDefinition[Float](32, 3, 3, 2, 2, bias = true, Initializer.uniform[Float](-1, 1), activationF)
   }
 
   test("convolutional layer creation") {
-    val cdef = ConvDefinition[Double](2, 3, 3, 2, 2, bias = true, Initializer.uniform[Double](-1, 1), activationFunction)
-    val inputShape = Shape(1, 3, 5, 5)
-    val staticWeights = nous.StaticData.filter3x3x3
-    new Convolution[Double](cdef, inputShape, staticWeights)
+    val cdef = ConvDefinition[Float](32, 3, 3, 2, 2, bias = true, Initializer.uniform[Float](-1, 1), activationF)
+    val inputShape = Shape(1, 1, 28, 28)
+    val convLayer = cdef.build(inputShape)
   }
 
-  test("convolution forward pass with double") {
-    val cdef = ConvDefinition[Double](2, 3, 3, 2, 2, bias = true, Initializer.uniform[Double](-1, 1), activationFunction)
-    val inputShape = Shape(1, 3, 5, 5)
-    val staticWeights = nous.StaticData.filter3x3x3
-    val convlayer = new Convolution[Double](cdef, inputShape, staticWeights)
-    val batchInput = nous.StaticData.batch1x3x5x5
-    val output = convlayer.forward(batchInput)
+  test("convolution forward pass") {
+    val cdef = ConvDefinition[Float](32, 3, 3, 1, 1, bias = true, Initializer.uniform[Float](-1, 1), activationF)
+    val inputShape = Shape(1, 1, 28, 28)
+    val convLayer = cdef.build(inputShape)
+    val output = convLayer.forward(testData)
   }
 
 }

@@ -3,58 +3,61 @@ package layers
 
 import scala.reflect.ClassTag
 
+import nous.data._
 import nous.kernels._
 import nous.network.definitions._
+import nous.util.Shape
 import spire.algebra._
 import spire.math._
 
-class FullyConnected[A: ClassTag](fcdef: FcDefinition[A], input: Shape, w: Vector[A])(
-    implicit val field: Field[A], val linalg: Blas[A]) extends FunctionLayer[A] { self =>
+class FullyConnected[A: ClassTag](fcdef: FcDefinition[A], in: InputShape, w: Vector[A], id: Int = -1)(
+    implicit val field: Field[A], val lin: Blas[A]) extends FunctionLayer[A] { self =>
 
+  val layerID = id
+  val layerLabel = "fc"
   val definition = fcdef
-  val activate = definition.activation.getOrElse(activations.linear[A] _)
-  val weights = w
+  val activate = definition.activation
+  val numInputs = in.r * in.c * in.k
+  val numOutputs = definition.outputs
+
+  val W: Weights[A] = {
+    val w_length = numInputs * numOutputs
+    assert(w.length == w_length, s"Provided weights don't match expected length of $w_length")
+    Weights(numInputs, numOutputs, 1, 1, w)
+  }
+
   val bias =
     if (definition.bias)
       Vector.fill(definition.outputs)(field.zero)
     else
       Vector.empty[A]
 
-  val numOutputs = definition.outputs
+  val inputShape = in
+  val outputShape = Shape(inputShape.n, numOutputs, 1, 1)
 
-  val inputShape = input
-  val outputShape = Shape(input.s, 1, 1, definition.outputs)
+  def renumber(n: Int): FullyConnected[A] = new FullyConnected[A](definition, inputShape, w, n)
 
   def forward(x: LayerInput[A]): LayerOutput[A] = {
     x map { sample =>
-      //beta, dest_tensor, alpha, tensor_lhs, trans_lhs(bool), tensor_rhs, trans_rhs(bool)
-      // Multiplying layer input x weights
-      // a : sample
-      // b : weights
-      // m : rows of a == rows of c
-      // n : cols of b == cols of c
-      // k : cols of a == rows of b
-      val a_m = sample.rows
-      val a_n = sample.cols
-      val b_m = a_n
-      val b_n = numOutputs
-      val c_m = a_m
-      val c_n = b_n
-      val m = c_m
-      val n = b_n
-      val k = a_n
-      val y = linalg.gemm("N", "N", m, n, k, field.one, sample.data.toArray, weights.toArray, field.zero)
+      val transA = "N"
+      val transB = "T"
+      val m = 1
+      val n = numOutputs
+      val k = sample.totalSize
+      val alpha = field.one
+      val beta = field.one
+      val y = lin.gemm(transA, transB, m, n, k, alpha, sample.data.toArray, W.toArray, beta)
       if (bias.nonEmpty) {
         val yb = y.zip(bias).map(aa => field.plus(aa._1, aa._2))
-        sample.update(1, 1, numOutputs, yb.toVector.map(activate))
+        sample.update(numOutputs, 1, 1, yb.toVector)
       } else {
-        sample.update(1, 1, numOutputs, y.toVector.map(activate))
+        sample.update(numOutputs, 1, 1, y.toVector)
       }
     }
   }
 
-  def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
-    weights
+  def backward(x: LayerInput[A], gradient: Vector[A]): Vector[A] = {
+    Vector.empty[A]
   }
 
   def updateW(weights: Vector[A]): FullyConnected[A] = {

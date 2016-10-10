@@ -33,7 +33,7 @@ object mnist {
       .vectorChunkN(28 * 28)
       .zip(readInputStream(y, 4096).bufferAll.drop(8).map(_.toFloat))
       .zipWithIndex
-      .map(xyi => new Sample(1, 28, 28, xyi._1._1, xyi._1._2, xyi._2))
+      .map(xyi => new Sample(1, 28, 28, xyi._1._1, Vector(xyi._1._2), xyi._2))
 
   def trainingSamples: Stream[Task, Sample[Float, Float]] = buildStream(trainingImages, trainingLabels)
 

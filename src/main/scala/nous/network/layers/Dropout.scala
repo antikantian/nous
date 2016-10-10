@@ -3,22 +3,27 @@ package layers
 
 import scala.reflect.ClassTag
 
-import nous.kernels._
+import nous.data._
 import nous.network.definitions._
+import nous.util.Shape
 import spire.algebra._
 import spire.math._
 import spire.random._
 
-class Dropout[A: ClassTag](dodef: DropoutDefinition[A], input: Shape)(
+class Dropout[A: ClassTag](dodef: DropoutDefinition[A], in: InputShape, id: Int = -1)(
     implicit val field: Field[A]) extends FunctionLayer[A] { self =>
 
-  lazy val weights = Vector.empty[A]
-  lazy val bias = weights
-
+  val layerID = id
+  val layerLabel = "dropout"
   val definition = dodef
   val droprate = definition.r
-  val inputShape = input
+  val inputShape = in
   val outputShape = inputShape
+
+  lazy val W = Weights.empty[A]
+  lazy val bias = Vector.empty[A]
+
+  def renumber(n: Int): Dropout[A] = new Dropout[A](definition, inputShape, n)
 
   def forward(x: LayerInput[A]): LayerOutput[A] = {
     x map { sample =>
@@ -34,7 +39,7 @@ class Dropout[A: ClassTag](dodef: DropoutDefinition[A], input: Shape)(
   }
 
   def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
-    weights
+    W.data
   }
 
   def updateW(weights: Vector[A]): FunctionLayer[A] = {

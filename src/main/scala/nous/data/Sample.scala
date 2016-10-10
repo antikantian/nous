@@ -12,10 +12,10 @@ import cats.data.Validated.{ Invalid, Valid }
 import fs2._
 import nous.kernels.convolution._
 import nous.util.exception._
-import spire.algebra.Eq
+import spire.algebra.{ CoordinateSpace, Eq }
 import spire.math._
 
-class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int = -1) { self =>
+class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T], snum: Int = -1) { self =>
   val data = x
   val channels = c
   val height = h
@@ -41,7 +41,7 @@ class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: I
     data.apply { ((depth + d) * rows + y) * cols + x }
 
   def map[B: ClassTag](f: A => B): Sample[B, T] =
-    new Sample(channels, height, width, dataStream.map(f).toVector, target, sample)
+    new Sample(channels, height, width, data.map(f), target, sample)
 
   def mapChannels[B: ClassTag](f: Channel[A] => Channel[B]): Sample[B, T] = {
     val newChannels = channelStream.map(f).toVector
@@ -78,7 +78,7 @@ object Sample {
     def revert = origin
   }
 
-  def apply[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: T, snum: Int): Sample[A, T] =
+  def apply[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T], snum: Int): Sample[A, T] =
     new Sample(c, h, w, x, y, snum)
 
   def samplesMatch[A, T](s1: Sample[A, T], s2: Sample[A, T]): Boolean =
