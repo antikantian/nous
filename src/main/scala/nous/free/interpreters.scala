@@ -1,17 +1,6 @@
 package nous.free
 
-import scala.reflect.ClassTag
-
-import cats._
-import cats.data._
-import nous.kernels.convolution
-import nous.kernels.matrix
-import nous.network.definitions._
-
 object interpreters {
-
-  import ast._
-  import functors._
 
   /**
 

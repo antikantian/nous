@@ -3,16 +3,14 @@ package nous.data
 import scala.reflect.ClassTag
 
 import cats._
-import cats.data._
 import cats.data.Validated.{Invalid, Valid}
+import cats.data._
 import fs2._
 import nous.data.Sample.samplesMatch
-import nous.util.exception._
 import nous.util.Shape
-import spire.algebra.{Field, InnerProductSpace, Order}
-import spire.math.ConvertableFrom
+import nous.util.exception._
 
-class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
+class Batch[X: ClassTag, Y](samples: Vector[Sample[X, Y]]) { self =>
 
   val data = samples
 
@@ -30,34 +28,34 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
   val r = xHeight
   val c = xWidth
 
-  def ++(rhs: Batch[A, T]): Batch[A, T] =
-    Semigroup[Batch[A, T]].combine(self, rhs)
+  def ++(rhs: Batch[X, Y]): Batch[X, Y] =
+    Semigroup[Batch[X, Y]].combine(self, rhs)
 
-  def foreach(f: Sample[A, T] => Unit): Unit =
+  def foreach(f: Sample[X, Y] => Unit): Unit =
     data foreach f
 
-  def foldLeft[B](b: B)(f: (B, Sample[A, T]) => B): B =
+  def foldLeft[B](b: B)(f: (B, Sample[X, Y]) => B): B =
     data.foldLeft(b)(f)
 
-  def map[B: ClassTag](f: Sample[A, T] => Sample[B, T]): Batch[B, T] =
+  def map[XX: ClassTag](f: Sample[X, Y] => Sample[XX, Y]): Batch[XX, Y] =
     new Batch(data.map(f))
 
-  def sampleStream: Stream[Pure, Sample[A, T]] = Stream.emits(samples).pure
+  def sampleStream: Stream[Pure, Sample[X, Y]] = Stream.emits(samples).pure
 
-  def xStream: Stream[Pure, Vector[A]] =
-    data.foldLeft(Stream.empty[Pure, Vector[A]]) { (stream, sample) =>
+  def xStream: Stream[Pure, Vector[X]] =
+    data.foldLeft(Stream.empty[Pure, Vector[X]]) { (stream, sample) =>
       stream ++ Stream.emit(sample.data)
     }
 
-  def yStream: Stream[Pure, Vector[T]] =
-    data.foldLeft(Stream.empty[Pure, Vector[T]]) { (stream, sample) =>
+  def yStream: Stream[Pure, Vector[Y]] =
+    data.foldLeft(Stream.empty[Pure, Vector[Y]]) { (stream, sample) =>
       stream ++ Stream.emit(sample.target)
     }
 
-  def getSample(n: Int): Option[Sample[A, T]] =
+  def getSample(n: Int): Option[Sample[X, Y]] =
     data.find(_.sample == n)
 
-  def targets: Vector[Vector[T]] = data.map(_.target)
+  def targets: Vector[Vector[Y]] = data.map(_.target)
 
   def renumberAll(snums: Vector[Int]) = {
     val renumbered =
@@ -77,15 +75,20 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
     new Batch(renumbered.toVector)
   }
 
-  def toArray: Array[A] =
-    foldLeft(new Array[A](k * r * c)) { (acc, sample) => acc ++ sample.data.toArray }
+  def toArray: Array[X] =
+    foldLeft(new Array[X](k * r * c)) { (acc, sample) => acc ++: sample.data.toArray }
 
-  def toVector: Vector[A] =
-    foldLeft(Vector.empty[A]) { (acc, sample) => acc ++ sample.data }
+  def vectorX: Vector[X] =
+    foldLeft(Vector.empty[X]) { (acc, sample) => acc ++ sample.data }
 
-  def shuffle: Batch[A, T] = new Batch(scala.util.Random.shuffle(samples))
+  def vectorY: Vector[Y] =
+    foldLeft(Vector.empty[Y]) { (acc, sample) => acc ++ sample.target }
 
-  def zipWith(s: Seq[A])(f: (Sample[A, T], A) => Sample[A, T]): Batch[A, T] = {
+  def toVector: (Vector[X], Vector[Y]) = (vectorX, vectorY)
+
+  def shuffle: Batch[X, Y] = new Batch(scala.util.Random.shuffle(samples))
+
+  def zipWith(s: Seq[X])(f: (Sample[X, Y], X) => Sample[X, Y]): Batch[X, Y] = {
     new Batch(data.zip(s).map(f.tupled.apply(_)))
   }
 
@@ -93,7 +96,7 @@ class Batch[A, T](samples: Vector[Sample[A, T]]) { self =>
 
 object Batch extends BatchInstances {
 
-  def validate[A, T](bat: Batch[A, T]): Validated[SamplesInconsistent, Batch[A, T]] = {
+  def validate[X, Y](bat: Batch[X, Y]): Validated[SamplesInconsistent, Batch[X, Y]] = {
     val shape = Seq(bat.xChannels, bat.xHeight, bat.xWidth)
     val mismatched = bat.data.tail collect {
       case sample if !samplesMatch(bat.data.head, sample) => sample.sample
@@ -104,16 +107,16 @@ object Batch extends BatchInstances {
       Invalid(SamplesInconsistent(mismatched, shape, s"""Samples[${mismatched.mkString(",")}] do not match shape: (${shape.mkString(", ")})"""))
   }
 
-  def checkBatches[A, T](b1: Batch[A, T], b2: Batch[A, T]) = {
+  def checkBatches[X: ClassTag, Y](b1: Batch[X, Y], b2: Batch[X, Y]) = {
     validate(b1).combine(validate(b2))
   }
 
 }
 
 sealed abstract class BatchInstances {
-  implicit def batchSemigroup[A, T]: Semigroup[Batch[A, T]] =
-    new Semigroup[Batch[A, T]] {
-      def combine(x: Batch[A, T], y: Batch[A, T]): Batch[A, T] =
+  implicit def batchSemigroup[X: ClassTag, Y]: Semigroup[Batch[X, Y]] =
+    new Semigroup[Batch[X, Y]] {
+      def combine(x: Batch[X, Y], y: Batch[X, Y]): Batch[X, Y] =
         new Batch(x.data ++ y.data)
     }
 }

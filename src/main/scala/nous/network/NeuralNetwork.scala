@@ -1,16 +1,17 @@
 package nous.network
 
+import scala.collection.mutable
+import scala.reflect.ClassTag
+
 import cats._
 import fs2._
 import nous.data._
-import nous.network.definitions._
 import nous.network.layers._
 import nous.network.loss._
 import nous.network.optimizers._
 import nous.util.Shape
-import spire.algebra.{ Field, Rig }
+import spire.algebra.{Field, Module}
 import spire.math._
-import spire.implicits._
 
 trait NeuralNetwork[A] {
 
@@ -25,8 +26,6 @@ trait NeuralNetwork[A] {
 
   def optimizer: Option[Optimizer[A]]
 
-  def loss(y: NetworkOutput[A]): Error[A] = lossF.f(y)
-
   def totalWeights: Int = layers.foldLeft(0) { (acc, layer) => acc + layer.W.length }
 
   def collectWeights: Vector[A] =
@@ -35,33 +34,64 @@ trait NeuralNetwork[A] {
   def layerWeights: Vector[Weights[A]] =
     layers.foldLeft(Vector.empty[Weights[A]]) { (acc, layer) => acc :+ layer.W }
 
-  def propagate(x: LayerInput[A])(implicit ev: Field[A]): LayerOutput[A] =
-    layers.foldLeft(x) { (input, layer) =>
-      layer.definition.activation.forward(layer.forward(input))
+  def unactivated(x: NetworkInput[A])(implicit ev: Field[A], ev1: ClassTag[A]): NetworkOutput[A] =
+    layers.foldLeft(x) { (xbatch, layer) =>
+      xbatch map { xsample =>
+        layer.forward(xsample)
+      }
     }
 
-  // After forwardprop, we have:
-  // 1) Network output of last activation function, y = f_last(x): y = [a1, a2, a3, ..., an]
-  // 2) Targets from the input batch, t = [t1, t2, t3, ..., tn]
-  // 3) Loss over the mini-match, yt = [yt1, yt2, yt3, ..., ytn]
-  // 4) Total error, A, some fractional
-  // We need:
-  // a) Derivative of last layer's activation function, which takes as input the network's output: f_last'(y) = [da1, da2, da3, ..., dan]
-  // b) Delta_last, which is yt * f_last'(y) <-- this is the error that we're backpropagating
-  // Take delta_last and fold right through the layers, feed the output of the final layer's activation function into
-  // the backward's method of a layer, along with the accumulating delta/gradient
-  // To backpropagate the error, each layer needs: backward(grad: Vector[A], y: NetworkOutput[A], aka LayerInput[A], aka LayerOutput[A])
-  // This will give up the gradient with which we can update the weights, as Vector[A]
-  // Going to store the loss (y - t) in g and initialize the fold with it
-  def backpropagate(y: NetworkOutput[A], g: Vector[A]) = {
-    assert(y.size == g.length, "Network output doesn't match size of output error")
-    layers.foldRight(g) { (layer, d) =>
-      val da = layer.a.backward(y, d)
-      layer.backward(y, da)
+  def prop(x: NetworkInput[A])(implicit ev: Field[A], ev2: ClassTag[A]): CachedNetworkOutput[A] = {
+    val ycached = Eval.now(mutable.HashMap.newBuilder[String, Vector[A]]) map { cache =>
+      val y = layers.foldLeft(x) { (xbatch, layer) =>
+        xbatch map { xsample =>
+          val layerOutput = layer.forward(xsample)
+          cache += (layer.layerName -> layerOutput.data)
+          layerOutput
+        }
+      }
+      (cache.result, y)
     }
+    ycached.value
   }
 
+  def propagate(x: NetworkInput[A])(implicit ev: Field[A], ev2: ClassTag[A]): NetworkOutput[A] =
+    layers.foldLeft(x) { (xbatch, layer) =>
+      xbatch map { xsample =>
+        layer.a.forward(layer.forward(xsample))
+      }
+    }
 
+  def deltaOut(batch: NetworkOutput[A])(implicit m: Module[Vector[A], A]): Vector[A] = {
+    lossF.backward(batch.vectorX, batch.vectorY)
+  }
+
+  def backpropagate(y: CachedNetworkOutput[A])(implicit ev: ClassTag[A], ev2: Module[Vector[A], A]) = {
+    Eval.now(y._1) map { cache =>
+      val output = y._2
+      val dout = deltaOut(output)
+      cache foreach { kv =>
+        val (k, v) = kv
+        println(s"$k -> ${v.length}")
+      }
+      println(s"Network output size: ${output.data.head.data.length}")
+      println(s"Delta output size: ${dout.length}")
+      layers.reverse.tail.foldLeft(dout) { (gradient, layer) =>
+        val activatedInput = cache.get(s"${layer.layerName}")
+        println(s"${layer.layerName}: weights = ${layer.W.length}, gradient = ${gradient.length}")
+        layer.backward(gradient, activatedInput.get)
+      }
+
+      /**
+      layers.foldRight(dout) { (layer, gradient) =>
+        //val cachedOutput = cache.get(layer.layerName)
+        val activatedInput = cache.get(s"${layer.layerName}-a")
+        println(s"${layer.layerName}: weights = ${layer.W.length}, gradient = ${gradient.length}")
+        layer.backward(gradient, activatedInput.get)
+      }
+      */
+    }
+  }
 }
 
 object NeuralNetwork extends NeuralNetworkInstances {

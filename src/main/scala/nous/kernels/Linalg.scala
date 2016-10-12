@@ -20,7 +20,7 @@ object Linalg {
 
   val nblas = Eval.later(BLAS.getInstance())
 
-  implicit def floatBlas: Blas[Float] = new Blas[Float] {
+  implicit def floatBlas: Linalg[Float] = new Linalg[Float] {
     override def gemm(transA: String, transB: String, m: Int, n: Int, k: Int, alpha: Float, a: Array[Float], b: Array[Float], beta: Float): Array[Float] = {
       val outArray = new Array[Float](m * n)
       val lda = getLda(transA, m, k)
@@ -30,7 +30,7 @@ object Linalg {
     }
   }
 
-  implicit def doubleBlas: Blas[Double] = new Blas[Double] {
+  implicit def doubleBlas: Linalg[Double] = new Linalg[Double] {
     override def gemm(transA: String, transB: String, m: Int, n: Int, k: Int, alpha: Double, a: Array[Double], b: Array[Double], beta: Double): Array[Double] = {
       val outArray = new Array[Double](m * n)
       val lda = getLda(transA, m, k)

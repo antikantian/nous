@@ -3,16 +3,16 @@ package activations
 
 import scala.reflect.ClassTag
 
-import nous.network.layers._
+import nous.data.Sample
 import spire.algebra._
 import spire.math._
 
 final case class Tanh[A: Field: Trig: ClassTag]() extends ActivationF[A] {
-  def forward(x: LayerInput[A]): LayerOutput[A] = {
-    x.map(_.map(a => tanh(a)))
+  def forward(x: Sample[A, A]): Sample[A, A] = {
+    x.map(a => tanh(a))
   }
 
-  def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
+  def backward(y: NetworkOutput[A], gradient: Vector[A]): Vector[A] = {
     Vector.empty[A]
   }
 }

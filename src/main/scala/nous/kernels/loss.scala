@@ -2,16 +2,21 @@ package nous.kernels
 
 import scala.{ Numeric => Num }
 
+import cats.Eval
 import spire.algebra._
-import spire.math._
 import spire.implicits._
 
 object loss {
 
-  def mse[A](pred: Vector[A], target: Vector[A])(implicit field: Field[A]): A =
-    (pred - target).map(a => field.pow(a, 2)).foldLeft(field.zero)(_ + _) / pred.size
+  def crossEntropy[A](y: Vector[A], p: Vector[A])(implicit f: Field[A], t: Trig[A]): Vector[A] =
+    y.zip(p.map(t.log)).map(a => f.negate(a._1 * a._2)) :/ y.length
 
-  def mae[A](pred: Vector[A], target: Vector[A])(implicit ev: Signed[A], field: Field[A]): A =
-    (pred - target).map(ev.abs).foldLeft(field.zero)(_ + _) / pred.size
+  def crossEntropyD[A: Field](y: Vector[A], p: Vector[A]): Vector[A] =
+    Eval.now(y.length).map(ylen => (p - y).map(_ * (1.0 / ylen))).value
+
+  def euclidean[A: Field](y: Vector[A], p: Vector[A]): Vector[A] =
+    Vector(0.5 * (p - y).reduceLeft(_ + _) ** 2)
+
+  def euclideanD[A: Field](y: Vector[A], p: Vector[A]): Vector[A] = p - y
 
 }

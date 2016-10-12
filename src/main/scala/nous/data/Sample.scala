@@ -1,21 +1,13 @@
 package nous.data
 
-import scala.collection.mutable
-import scala.{Vector => SVector}
 import scala.reflect.ClassTag
+import scala.{Vector => SVector}
 
 import breeze.linalg.DenseMatrix
-import breeze.storage.Zero
-import cats._
-import cats.data._
-import cats.data.Validated.{ Invalid, Valid }
 import fs2._
-import nous.kernels.convolution._
-import nous.util.exception._
-import spire.algebra.{ CoordinateSpace, Eq }
-import spire.math._
+import spire.algebra.Eq
 
-class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T], snum: Int = -1) { self =>
+class Sample[X: ClassTag, Y](c: Int, h: Int, w: Int, x: Vector[X], y: Vector[Y], snum: Int = -1) { self =>
   val data = x
   val channels = c
   val height = h
@@ -29,35 +21,35 @@ class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T],
   val channelSize = rows * cols
   val totalSize = channelSize * depth
 
-  def dataStream: Stream[Pure, A] = Stream.emits(data).pure
+  def dataStream: Stream[Pure, X] = Stream.emits(data).pure
 
-  def channelStream: Stream[Pure, Channel[A]] =
+  def channelStream: Stream[Pure, Channel[X]] =
     dataStream.vectorChunkN(channelSize).map(v => Channel(height, width, v))
 
   def indexOf(nchan: Int, nrow: Int, ncol: Int): Int =
     ((depth + nchan) * rows + nrow) * cols + ncol
 
-  def atPosition(d: Int, x: Int, y: Int): A =
+  def atPosition(d: Int, x: Int, y: Int): X =
     data.apply { ((depth + d) * rows + y) * cols + x }
 
-  def map[B: ClassTag](f: A => B): Sample[B, T] =
+  def map[XX: ClassTag](f: X => XX): Sample[XX, Y] =
     new Sample(channels, height, width, data.map(f), target, sample)
 
-  def mapChannels[B: ClassTag](f: Channel[A] => Channel[B]): Sample[B, T] = {
+  def mapChannels[XX: ClassTag](f: Channel[X] => Channel[XX]): Sample[XX, Y] = {
     val newChannels = channelStream.map(f).toVector
     val outH = newChannels.head.height
     val outW = newChannels.head.width
-    new Sample(channels, outH, outW, newChannels.foldLeft(Vector.empty[B])(_ ++ _.data), y, sample)
+    new Sample(channels, outH, outW, newChannels.foldLeft(Vector.empty[XX])(_ ++ _.data), y, sample)
   }
 
-  def renumber(n: Int) = new Sample[A, T](channels, height, width, data, target, n)
+  def renumber(n: Int) = new Sample[X, Y](channels, height, width, data, target, n)
 
   def boundary: Rectangle = Rectangle(0, 0, cols - 1, rows - 1)
 
-  def update(c: Int, h: Int, w: Int, x: Vector[A]): Sample[A, T] =
+  def update(c: Int, h: Int, w: Int, x: Vector[X]): Sample[X, Y] =
     new Sample(c, h, w, x, target, sample)
 
-  def update(x: Vector[A]): Sample[A, T] =
+  def update(x: Vector[X]): Sample[X, Y] =
     new Sample(channels, height, width, x, target)
 
   override def toString =
@@ -67,18 +59,18 @@ class Sample[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T],
 
 object Sample {
 
-  case class Columned[A: ClassTag, B](
-      h: Int,
-      w: Int,
-      kernel: Int,
-      stride: Int,
-      padding: Int,
-      cols: Vector[A],
-      origin: Sample[A, B]) {
+  case class Columned[X: ClassTag, Y](
+      h       : Int,
+      w       : Int,
+      kernel  : Int,
+      stride  : Int,
+      padding : Int,
+      cols    : Vector[X],
+      origin  : Sample[X, Y]) {
     def revert = origin
   }
 
-  def apply[A: ClassTag, T](c: Int, h: Int, w: Int, x: Vector[A], y: Vector[T], snum: Int): Sample[A, T] =
+  def apply[X: ClassTag, Y](c: Int, h: Int, w: Int, x: Vector[X], y: Vector[Y], snum: Int): Sample[X, Y] =
     new Sample(c, h, w, x, y, snum)
 
   def samplesMatch[A, T](s1: Sample[A, T], s2: Sample[A, T]): Boolean =
@@ -88,9 +80,9 @@ object Sample {
 
 sealed abstract class SampleInstances {
 
-  implicit def sampleCanEq[A, T]: Eq[Sample[A, T]] =
-    new Eq[Sample[A, T]] {
-      def eqv(x: Sample[A, T], y: Sample[A, T]): Boolean = {
+  implicit def sampleCanEq[X, Y]: Eq[Sample[X, Y]] =
+    new Eq[Sample[X, Y]] {
+      def eqv(x: Sample[X, Y], y: Sample[X, Y]): Boolean = {
         x.rows == y.rows && x.cols == y.cols && x.depth == y.depth && x.data.length == y.data.length
       }
     }

@@ -1,14 +1,12 @@
-package nous.network.definitions
+package nous.network
+package layers
 
 import scala.reflect.ClassTag
 
 import fs2._
 import nous.kernels._
 import nous.network.activations._
-import nous.network.layers._
-import nous.util.exception.InvalidInputShape
 import spire.algebra._
-import spire.math._
 
 sealed trait LayerDefinition[A] {
   def activation: ActivationF[A]

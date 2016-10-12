@@ -3,34 +3,18 @@ package activations
 
 import scala.reflect.ClassTag
 
-import nous.network.layers._
+import nous.data._
+import nous.kernels.activations.softmax
 import spire.algebra._
-import spire.math._
-import spire.implicits._
 
-final class Softmax[A: Field: Trig: Order: NumberTag: ClassTag](
-  implicit vs: NormedVectorSpace[Vector[A], A]) extends ActivationF[A] {
+final case class Softmax[A: Field: Trig: Order: ClassTag]() extends ActivationF[A] {
 
-  def forward(x: LayerInput[A]): LayerOutput[A] = {
-    x map { sample =>
-      val snorm = sample mapChannels { channel =>
-        val cnorm = NumberTag[A].hasNegativeInfinity map { inf =>
-          channel.data map { a =>
-            val ma = max(inf, a)
-            exp(Field[A].minus(a, ma))
-          }
-        } match {
-          case Some(vector) => vector.normalize
-          case _ => channel.data.normalize
-        }
-        channel.update(cnorm)
-      }
-      snorm
-    }
+  def forward(x: Sample[A, A]): Sample[A, A] = {
+    x.update(softmax(x.data))
   }
 
-  def backward(x: LayerInput[A], gradient: Vector[A]): Vector[A] = {
-    Vector.empty[A]
+  def backward(y: NetworkOutput[A], deltas: Vector[A]): Vector[A] = {
+    deltas
   }
 
 

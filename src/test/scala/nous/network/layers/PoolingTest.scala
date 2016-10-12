@@ -1,6 +1,5 @@
 package nous.network.layers
 
-import nous.network.definitions._
 import nous.util._
 import org.scalatest.FunSuite
 import spire.implicits._
@@ -21,7 +20,7 @@ class PoolingTest extends FunSuite {
     val testData = nous.StaticData.mnistTest(1).take(1).runLog.unsafeRun.head
     val inputShape = Shape(1, 1, 28, 28)
     val poolLayer = new Pooling[Float](PoolDefinition(maxpool = true, 2, 2), inputShape)
-    val output = poolLayer.forward(testData)
+    val output = poolLayer.forward(testData.data.head)
   }
 
 }

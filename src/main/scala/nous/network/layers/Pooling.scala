@@ -5,10 +5,8 @@ import scala.reflect.ClassTag
 
 import nous.data._
 import nous.kernels.convolution._
-import nous.network.definitions._
 import nous.util.Shape
 import spire.algebra._
-import spire.math._
 
 class Pooling[A: ClassTag](pdef: PoolDefinition[A], in: InputShape, id: Int = -1)(
     implicit val field: Field[A], val order: Order[A]) extends FunctionLayer[A] { self =>
@@ -43,16 +41,15 @@ class Pooling[A: ClassTag](pdef: PoolDefinition[A], in: InputShape, id: Int = -1
 
   def renumber(n: Int): Pooling[A] = new Pooling[A](definition, inputShape, n)
 
-  def forward(x: LayerInput[A]): LayerOutput[A] = {
-    x map { sample =>
-      val os = sample.mapChannels[A] { channel =>
-        pool(channel, windowH, windowW, strideH, strideW, paddingH, paddingW, maxpool)
-      }
-      sample.update(os.channels, os.height, os.width, os.data)
+  def forward(x: Sample[A, A]): Sample[A, A] = {
+    val os = x.mapChannels[A] { channel =>
+      pool(channel, windowH, windowW, strideH, strideW, paddingH, paddingW, maxpool)
     }
+    x.update(os.channels, os.height, os.width, os.data)
+
   }
 
-  def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
+  def backward(gradient: Vector[A], xa: Vector[A]): Vector[A] = {
     W.data
   }
 

@@ -3,15 +3,15 @@ package loss
 
 import scala.reflect.ClassTag
 
-import nous.kernels.loss._
+import nous.kernels.loss.{crossEntropy, crossEntropyD}
 import spire.algebra._
 
-final case class MeanSquaredError[A: Field: ClassTag](implicit m: Module[Vector[A], A]) extends LossF[A] {
+final case class CrossEntropy[A: Field: Trig: ClassTag]() extends LossF[A] {
   def forward(y: NetworkOutput[A]): Vector[A] = {
-    euclidean(y.vectorX, y.vectorY)
+    crossEntropy(y.vectorX, y.vectorY)
   }
 
   def backward(y: Vector[A], p: Vector[A]): Vector[A] = {
-    euclideanD(y, p)
+    crossEntropyD(y, p)
   }
 }

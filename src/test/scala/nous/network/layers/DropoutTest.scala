@@ -1,6 +1,5 @@
 package nous.network.layers
 
-import nous.network.definitions._
 import nous.util._
 import org.scalatest.FunSuite
 import spire.implicits._
@@ -21,7 +20,7 @@ class DropoutTest extends FunSuite {
     val testData = nous.StaticData.mnistTrain(1).take(1).runLog.unsafeRun.head
     val inputShape = Shape(1, 1, 28, 28)
     val dropoutLayer = new Dropout[Float](DropoutDefinition(0.9), inputShape)
-    dropoutLayer.forward(testData)
+    dropoutLayer.forward(testData.data.head)
   }
 
 }

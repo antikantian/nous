@@ -3,12 +3,14 @@ package nous.kernels
 import scala.{specialized => sp}
 import scala.reflect.ClassTag
 
-import nous.data._
+import cats.Eval
 import spire.algebra._
 import spire.math._
 import spire.implicits._
 
 object activations {
+
+  implicit val dim = JetDim(3)
 
   def linear[A](x: A) = x
 
@@ -17,18 +19,14 @@ object activations {
   def sigmoid[A: Field](x: A)(implicit t: Trig[A]) =
     1 / (1 + t.exp(implicitly[Field[A]].negate(x)))
 
-  def softmax[A: Field : NumberTag : Order : Trig](x: Vector[A])(
-      implicit vs: NormedVectorSpace[Vector[A], A]): Vector[A] = {
-
-    NumberTag[A].hasNegativeInfinity map { inf =>
-      x map { a =>
-        val ma = max(inf, a)
-        exp(Field[A].minus(a, ma))
-      }
-    } match {
-      case Some(vector) => vector.normalize
-      case _ => x.normalize
-    }
+  def softmax[A: Field](x: Vector[A])(implicit t: Trig[A], o: Order[A]): Vector[A] = {
+    val eval =
+      for {
+        xmax <- Eval.later(x.reduce(o.max))
+        xp <- Eval.later(x.map(a => t.exp(a - xmax)))
+        xpsum <- Eval.later(xp.reduce(_ + _))
+    } yield xp.map(_ * (1 / xpsum))
+    eval.value
   }
 
   def softplus[A](x: A)(implicit t: Trig[A]): A = t.log1p(t.exp(x))

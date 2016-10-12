@@ -1,4 +1,5 @@
-package nous.network.layers
+package nous.network
+package layers
 
 import scala.language.higherKinds
 import scala.reflect.ClassTag
@@ -6,11 +7,9 @@ import scala.reflect.ClassTag
 import nous.data._
 import nous.kernels.Blas
 import nous.kernels.convolution._
-import nous.network.definitions._
-import nous.util.exception._
 import nous.util.Shape
+import nous.util.exception._
 import spire.algebra._
-import spire.math._
 
 class Convolution[A: ClassTag](cdef: ConvDefinition[A], in: InputShape, w: Vector[A], id: Int = -1)(
     implicit val field: Field[A], val linalg: Blas[A]) extends FunctionLayer[A] { self =>
@@ -49,42 +48,40 @@ class Convolution[A: ClassTag](cdef: ConvDefinition[A], in: InputShape, w: Vecto
 
   def renumber(n: Int): Convolution[A] = new Convolution[A](definition, inputShape, w, n)
 
-  def forward(x: LayerInput[A]): LayerOutput[A] = {
-    x map { sample =>
-      val col = im2col(sample.data, sample.channels, sample.height, sample.width, filterSize, strideH, strideW, paddingH, paddingW)
-      // Be wary of the transpose; we're storing row-major, BLAS is column-major
-      // a : im2col(input_image)
-      // b : weights
-      // m : rows of a == rows of c
-      // n : cols of b == cols of c
-      // k : cols of a == rows of b
-      val a_m = filterSize * filterSize * sample.depth
-      val a_n = outputH * outputW
-      val b_m = filters
-      val b_n = a_m
-      val c_m = b_m
-      val c_n = a_n
-      val m = a_m
-      val n = b_n
-      val k = a_n
-      val y = linalg.gemm("N", "T", m, n, k, field.one, col, W.toArray, field.one)
-      if (bias.nonEmpty) {
-        val yb =
-          y.grouped(outputH * outputW)
-            .toArray
-            .zip(bias)
-            .flatMap { outcb =>
-              val (outputChannel, bias) = outcb
-              outputChannel.map(element => field.plus(element, bias))
-            }
-        sample.update(outputC, outputH, outputW, yb.toVector)
-      } else {
-        sample.update(outputC, outputH, outputW, y.toVector)
-      }
+  def forward(x: Sample[A, A]): Sample[A, A] = {
+    val col = im2col(x.data, x.channels, x.height, x.width, filterSize, strideH, strideW, paddingH, paddingW)
+    // Be wary of the transpose; we're storing row-major, BLAS is column-major
+    // a : im2col(input_image)
+    // b : weights
+    // m : rows of a == rows of c
+    // n : cols of b == cols of c
+    // k : cols of a == rows of b
+    val a_m = filterSize * filterSize * x.depth
+    val a_n = outputH * outputW
+    val b_m = filters
+    val b_n = a_m
+    val c_m = b_m
+    val c_n = a_n
+    val m = a_m
+    val n = b_n
+    val k = a_n
+    val y = linalg.gemm("N", "T", m, n, k, field.one, col, W.toArray, field.one)
+    if (bias.nonEmpty) {
+      val yb =
+        y.grouped(outputH * outputW)
+          .toArray
+          .zip(bias)
+          .flatMap { outcb =>
+            val (outputChannel, bias) = outcb
+            outputChannel.map(element => field.plus(element, bias))
+          }
+      x.update(outputC, outputH, outputW, yb.toVector)
+    } else {
+      x.update(outputC, outputH, outputW, y.toVector)
     }
   }
 
-  def backward(x: LayerInput[A], yg: GradientOutput[A]): Vector[A] = {
+  def backward(y: Vector[A], gradient: Vector[A]): Vector[A] = {
     W.data
   }
 
