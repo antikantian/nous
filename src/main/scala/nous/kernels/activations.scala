@@ -22,11 +22,11 @@ object activations {
   def softmax[A: Field](x: Vector[A])(implicit t: Trig[A], o: Order[A]): Vector[A] = {
     val eval =
       for {
-        xmax <- Eval.later(x.reduce(o.max))
-        xp <- Eval.later(x.map(a => t.exp(a - xmax)))
-        xpsum <- Eval.later(xp.reduce(_ + _))
-    } yield xp.map(_ * (1 / xpsum))
-    eval.value
+        xmax <- Eval.later(x.view.reduce(o.max))
+        xp <- Eval.later(x.view.map(a => t.exp(a - xmax)))
+        xpsum <- Eval.later(xp.view.reduce(_ + _))
+    } yield xp.view.map(_ * (1 / xpsum))
+    eval.value.toVector
   }
 
   def softplus[A](x: A)(implicit t: Trig[A]): A = t.log1p(t.exp(x))

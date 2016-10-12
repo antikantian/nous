@@ -31,7 +31,7 @@ class NeuralNetworkTest extends FunSuite {
    */
 
   /**
-  test("neural network cycle") {
+  test("neural network cycle")
     val layerdef1 = FcDefinition[Float](512, bias = true, init, ReLU[Float]())
     val layerdef2 = DropoutDefinition[Float](0.2)
     val layerdef3 = FcDefinition[Float](512, bias = true, init, ReLU[Float]())
