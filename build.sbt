@@ -1,4 +1,4 @@
-name := "nous-parent"
+name := "nous"
 
 version := "0.1.0"
 
